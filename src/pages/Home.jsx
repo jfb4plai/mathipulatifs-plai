@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAccessibility } from '../contexts/AccessibilityContext.jsx'
+import logoPlai from '../assets/logo-plai.png'
 
 const manipulatives = [
   {
@@ -97,7 +98,11 @@ export default function Home() {
       {/* Hero Header */}
       <header className="bg-gradient-to-br from-blue-600 to-blue-800 text-white py-16 px-4">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="text-6xl mb-4" aria-hidden="true">🧮</div>
+          <img
+            src={logoPlai}
+            alt="Logo PLAI — Pôle Liégeois d'Accompagnement vers une École Inclusive"
+            className="h-20 mx-auto mb-4 drop-shadow-md"
+          />
           <h1 className="text-4xl font-bold mb-3">Mathipulatifs PLAI</h1>
           <p className={`text-blue-100 max-w-2xl mx-auto ${largeText ? 'text-2xl' : 'text-xl'}`}>
             Manipulables mathématiques interactifs pour la classe inclusive
