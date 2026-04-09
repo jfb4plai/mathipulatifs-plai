@@ -28,6 +28,18 @@ const manipulatives = [
     titre: 'Réglettes Cuisenaire',
     description: 'Décomposer, additionner, comparer avec des réglettes colorées',
   },
+  {
+    id: 'cadres10',
+    emoji: '🔴',
+    titre: 'Cadres à 10',
+    description: "Dénombrer et décomposer jusqu'à 10 ou 20 avec des cercles",
+  },
+  {
+    id: 'grille100',
+    emoji: '🔢',
+    titre: 'Grille des 100',
+    description: 'Colorier des nombres, repérer multiples et régularités',
+  },
 ]
 
 const FRACTION_DENOMINATORS = [2, 3, 4, 5, 6, 8, 10, 12]
@@ -58,6 +70,16 @@ export default function ExerciseCreate() {
   // Cuisenaire config
   const [cuiTarget, setCuiTarget] = useState('')
   const [cuiShowUnits, setCuiShowUnits] = useState(false)
+
+  // Cadres à 10 config
+  const [tenFrames, setTenFrames] = useState(1)
+  const [tenTarget, setTenTarget] = useState('')
+  const [tenColor, setTenColor] = useState('red')
+
+  // Grille des 100 config
+  const [chartMode, setChartMode] = useState('libre')
+  const [chartMultiple, setChartMultiple] = useState(2)
+  const [chartStart, setChartStart] = useState(1)
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -107,6 +129,23 @@ export default function ExerciseCreate() {
         targetNumber: cuiTarget !== '' ? parseInt(cuiTarget) : undefined,
         showCounter: true,
         showUnits: cuiShowUnits,
+        cpaMode,
+      }
+    }
+    if (selectedManip === 'cadres10') {
+      return {
+        frames: parseInt(tenFrames),
+        targetNumber: tenTarget !== '' ? parseInt(tenTarget) : undefined,
+        counterColor: tenColor,
+        showCounter: true,
+        cpaMode,
+      }
+    }
+    if (selectedManip === 'grille100') {
+      return {
+        startAt: parseInt(chartStart),
+        mode: chartMode,
+        multipleOf: chartMode === 'multiples' ? parseInt(chartMultiple) : undefined,
         cpaMode,
       }
     }
@@ -254,7 +293,7 @@ export default function ExerciseCreate() {
         {/* Manipulative choice */}
         <div className="bg-white rounded-2xl border border-gray-200 p-6">
           <h2 className="font-bold text-gray-700 mb-4">2. Choisir un manipulable *</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {manipulatives.map((m) => (
               <button
                 key={m.id}
@@ -398,6 +437,70 @@ export default function ExerciseCreate() {
                     </div>
                   </label>
                 </div>
+              </div>
+            )}
+
+            {selectedManip === 'cadres10' && (
+              <div className="space-y-4">
+                <div>
+                  <label className={labelClass}>Nombre de cadres</label>
+                  <select value={tenFrames} onChange={(e) => setTenFrames(e.target.value)} className={inputClass}>
+                    <option value={1}>1 cadre (0–10)</option>
+                    <option value={2}>2 cadres (0–20)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Nombre cible (optionnel)</label>
+                  <input
+                    type="number"
+                    value={tenTarget}
+                    onChange={(e) => setTenTarget(e.target.value)}
+                    min={1}
+                    max={tenFrames === 2 ? 20 : 10}
+                    placeholder={`Ex : 7 (max ${tenFrames === 2 ? 20 : 10})`}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Couleur des compteurs</label>
+                  <select value={tenColor} onChange={(e) => setTenColor(e.target.value)} className={inputClass}>
+                    <option value="red">🔴 Rouge</option>
+                    <option value="blue">🔵 Bleu</option>
+                    <option value="yellow">🟡 Jaune</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {selectedManip === 'grille100' && (
+              <div className="space-y-4">
+                <div>
+                  <label className={labelClass}>Commence à</label>
+                  <select value={chartStart} onChange={(e) => setChartStart(e.target.value)} className={inputClass}>
+                    <option value={1}>1 (de 1 à 100)</option>
+                    <option value={0}>0 (de 0 à 99)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Mode</label>
+                  <select value={chartMode} onChange={(e) => setChartMode(e.target.value)} className={inputClass}>
+                    <option value="libre">Libre (coloriage libre)</option>
+                    <option value="multiples">Multiples (trouver les multiples de N)</option>
+                  </select>
+                </div>
+                {chartMode === 'multiples' && (
+                  <div>
+                    <label className={labelClass}>Multiples de quel nombre ?</label>
+                    <input
+                      type="number"
+                      value={chartMultiple}
+                      onChange={(e) => setChartMultiple(e.target.value)}
+                      min={2}
+                      max={20}
+                      className={inputClass}
+                    />
+                  </div>
+                )}
               </div>
             )}
 

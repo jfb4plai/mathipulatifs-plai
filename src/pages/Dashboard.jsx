@@ -8,6 +8,8 @@ const manipulativeLabels = {
   'droite-numerique': { label: 'Droite numérique', color: 'bg-green-100 text-green-700' },
   fractions: { label: 'Fractions', color: 'bg-purple-100 text-purple-700' },
   cuisenaire: { label: 'Réglettes Cuisenaire', color: 'bg-orange-100 text-orange-700' },
+  cadres10:   { label: 'Cadres à 10',          color: 'bg-red-100 text-red-700' },
+  grille100:  { label: 'Grille des 100',        color: 'bg-teal-100 text-teal-700' },
 }
 
 function ResultsChart({ sessions }) {

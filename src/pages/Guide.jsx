@@ -50,6 +50,22 @@ const RISS_REFS = [
       "La manipulation des réglettes Cuisenaire facilite le passage à l'abstraction et rend plus efficace la construction des savoirs mathématiques. La progression du concret vers l'abstrait — caractéristique de cet outil — soutient durablement la compréhension des relations numériques.",
   },
   {
+    id: 'souillard2016',
+    citation:
+      "Souillard, M. (2016). La manipulation en maternelle : un outil d'aide à la construction du nombre. DUMAS.",
+    riss: 'dumas-01428946',
+    content:
+      "La manipulation d'objets physiques en maternelle (cadres, jetons, collections) favorise la construction du sens du nombre et du dénombrement. Les dispositifs structurés en rangées de 5 (type cadre à 10) renforcent la reconnaissance des quantités sans comptage un à un — fondement du subitizing.",
+  },
+  {
+    id: 'martinalli2012',
+    citation:
+      "Martinalli-Darlay, S. (2012). Quel est l'intérêt des jeux mathématiques en aide personnalisée au CP pour la construction de la dizaine ? DUMAS.",
+    riss: 'dumas-00814190',
+    content:
+      "Les activités de repérage des régularités dans la suite numérique — notamment via la bande et la grille des 100 — renforcent la construction de la dizaine et la mémorisation des relations numériques. Les sauts réguliers sur la grille rendent visuelles les structures multiplicatives.",
+  },
+  {
     id: 'lacombe2021',
     citation:
       "Lacombe, N., de Chambrier, A.-F. & Dias, T. (2021). Des données probantes au service de l'enseignement différencié des mathématiques.",
@@ -161,6 +177,22 @@ const MANIPULATIVES = [
     desc: "10 réglettes colorées de valeur 1 (blanche) à 10 (orange). L'élève compose un nombre cible en combinant des réglettes. Chaque couleur est unique — la couleur encode la valeur.",
     cpa: "Concret : assemblage des réglettes → Semi-concret : schéma en barres → Abstrait : égalité additive",
   },
+  {
+    emoji: '🔴',
+    name: 'Cadres à 10',
+    levels: 'M–P3 · P4–P6 en difficulté · dyscalculie',
+    skills: "Dénombrement, subitizing, compléments à 10, décomposition des quantités",
+    desc: "Cadres de 2 rangées × 5 cases. L'élève clique pour remplir ou vider des cercles. Le cadre simple couvre 0–10, le double cadre 0–20. Soutient la reconnaissance immédiate des quantités (subitizing).",
+    cpa: "Concret : manipulation de jetons → Semi-concret : cases coloriées dans le cadre → Abstrait : écriture de la décomposition",
+  },
+  {
+    emoji: '🔢',
+    name: 'Grille des 100',
+    levels: 'P1–P4 · S1 en difficulté',
+    skills: "Numération, régularités, multiples, calcul mental, comptage par bonds",
+    desc: "Grille 10×10, nombres 1 à 100 (ou 0 à 99). L'élève colorie librement ou cherche les multiples d'un nombre. 4 couleurs disponibles. Mode guidé avec révélation des multiples.",
+    cpa: "Concret : grille physique colorée → Semi-concret : grille numérique → Abstrait : table de multiplication ou suite additive",
+  },
 ]
 
 export default function Guide() {
@@ -182,7 +214,7 @@ export default function Guide() {
 
       {/* Les 3 manipulables */}
       <section className="mb-10">
-        <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Les 4 manipulables</h2>
+        <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Les 6 manipulables</h2>
         <div className="space-y-4">
           {MANIPULATIVES.map((m) => (
             <div key={m.name} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">

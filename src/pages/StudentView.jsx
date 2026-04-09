@@ -6,6 +6,8 @@ import Base10Blocks from '../components/manipulatives/Base10Blocks.jsx'
 import NumberLine from '../components/manipulatives/NumberLine.jsx'
 import FractionBars from '../components/manipulatives/FractionBars.jsx'
 import CuisenaireRods from '../components/manipulatives/CuisenaireRods.jsx'
+import TenFrames from '../components/manipulatives/TenFrames.jsx'
+import HundredChart from '../components/manipulatives/HundredChart.jsx'
 
 // Demo configs for tokens starting with "demo-"
 const DEMO_CONFIGS = {
@@ -33,6 +35,18 @@ const DEMO_CONFIGS = {
     manipulative: 'cuisenaire',
     config: { targetNumber: 10, showCounter: true },
   },
+  'demo-cadres10': {
+    titre: 'Exploration — Cadres à 10',
+    consigne: 'Clique sur les cercles pour les remplir. Représente le nombre 7 dans le cadre !',
+    manipulative: 'cadres10',
+    config: { frames: 1, targetNumber: 7, counterColor: 'red', showCounter: true },
+  },
+  'demo-grille100': {
+    titre: 'Exploration — Grille des 100',
+    consigne: 'Colorie tous les multiples de 5 dans la grille. Utilise la couleur de ton choix !',
+    manipulative: 'grille100',
+    config: { startAt: 1, mode: 'multiples', multipleOf: 5 },
+  },
 }
 
 const ENCOURAGEMENTS = [
@@ -48,6 +62,8 @@ function ManipulativeComponent({ manipulative, config, onValidate }) {
   if (manipulative === 'droite-numerique') return <NumberLine config={config} onValidate={onValidate} />
   if (manipulative === 'fractions') return <FractionBars config={config} onValidate={onValidate} />
   if (manipulative === 'cuisenaire') return <CuisenaireRods config={config} onValidate={onValidate} />
+  if (manipulative === 'cadres10') return <TenFrames config={config} onValidate={onValidate} />
+  if (manipulative === 'grille100') return <HundredChart config={config} onValidate={onValidate} />
   return <div className="text-gray-500">Manipulable inconnu : {manipulative}</div>
 }
 

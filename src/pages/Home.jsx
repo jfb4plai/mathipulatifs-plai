@@ -34,6 +34,22 @@ const manipulatives = [
     couleur: 'orange',
     demoToken: 'demo-cuisenaire',
   },
+  {
+    id: 'cadres10',
+    emoji: '🔴',
+    titre: 'Cadres à 10',
+    description: "Dénombrer et décomposer les nombres jusqu'à 10 ou 20. Remplis les cercles dans les cadres pour représenter une quantité.",
+    couleur: 'red',
+    demoToken: 'demo-cadres10',
+  },
+  {
+    id: 'grille100',
+    emoji: '🔢',
+    titre: 'Grille des 100',
+    description: 'Explorer les nombres de 1 à 100. Colorie des cases pour repérer les multiples, les régularités et les patterns numériques.',
+    couleur: 'teal',
+    demoToken: 'demo-grille100',
+  },
 ]
 
 const colorMap = {
@@ -56,6 +72,16 @@ const colorMap = {
     card: 'border-orange-200 hover:border-orange-400',
     badge: 'bg-orange-100 text-orange-700',
     btn: 'bg-orange-500 hover:bg-orange-600 text-white',
+  },
+  red: {
+    card: 'border-red-200 hover:border-red-400',
+    badge: 'bg-red-100 text-red-700',
+    btn: 'bg-red-500 hover:bg-red-600 text-white',
+  },
+  teal: {
+    card: 'border-teal-200 hover:border-teal-400',
+    badge: 'bg-teal-100 text-teal-700',
+    btn: 'bg-teal-500 hover:bg-teal-600 text-white',
   },
 }
 
@@ -95,7 +121,7 @@ export default function Home() {
           </p>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {manipulatives.map((m) => {
             const c = colorMap[m.couleur]
             return (
