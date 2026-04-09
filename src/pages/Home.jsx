@@ -140,9 +140,12 @@ export default function Home() {
           <p className="mb-1">
             Fédération Wallonie-Bruxelles · Outil de différenciation pour élèves en difficulté
           </p>
-          <p>
+          <p className="mb-2">
             Ancrage scientifique : Jolivel (2023, corpus RISS) · Najjar (2015, corpus RISS)
           </p>
+          <Link to="/guide" className="text-blue-500 hover:underline font-medium">
+            📖 Mode d'emploi &amp; références scientifiques complètes
+          </Link>
         </footer>
       )}
     </div>
