@@ -57,6 +57,7 @@ export default function ExerciseCreate() {
 
   // Cuisenaire config
   const [cuiTarget, setCuiTarget] = useState('')
+  const [cuiShowUnits, setCuiShowUnits] = useState(false)
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -105,6 +106,7 @@ export default function ExerciseCreate() {
       return {
         targetNumber: cuiTarget !== '' ? parseInt(cuiTarget) : undefined,
         showCounter: true,
+        showUnits: cuiShowUnits,
         cpaMode,
       }
     }
@@ -375,6 +377,26 @@ export default function ExerciseCreate() {
                     placeholder="Ex : 10 (laisser vide pour exploration libre)"
                     className={inputClass}
                   />
+                </div>
+                <div>
+                  <label className="flex items-start gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={cuiShowUnits}
+                      onChange={(e) => setCuiShowUnits(e.target.checked)}
+                      className="mt-1 w-5 h-5 accent-indigo-500 cursor-pointer"
+                    />
+                    <div>
+                      <div className="font-semibold text-gray-700 text-sm group-hover:text-indigo-600 transition-colors">
+                        Afficher les unités par défaut
+                      </div>
+                      {!focusMode && (
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          Les réglettes seront subdivisées en cellules dès l'ouverture — recommandé pour P1–P2 et élèves en difficulté.
+                        </div>
+                      )}
+                    </div>
+                  </label>
                 </div>
               </div>
             )}

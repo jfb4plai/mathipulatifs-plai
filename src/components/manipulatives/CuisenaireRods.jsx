@@ -2,26 +2,86 @@ import { useState } from 'react'
 import { useAccessibility } from '../../contexts/AccessibilityContext.jsx'
 
 const RODS = [
-  { value: 1,  name: 'Blanche',    color: '#F7F7F7', border: '#AAAAAA', textColor: '#333333' },
-  { value: 2,  name: 'Rouge',      color: '#E53E3E', border: '#9B2C2C', textColor: '#FFFFFF' },
-  { value: 3,  name: 'Vert clair', color: '#68D391', border: '#276749', textColor: '#1A202C' },
-  { value: 4,  name: 'Mauve',      color: '#B794F4', border: '#6B46C1', textColor: '#FFFFFF' },
-  { value: 5,  name: 'Jaune',      color: '#F6E05E', border: '#B7791F', textColor: '#333333' },
-  { value: 6,  name: 'Vert foncé', color: '#276749', border: '#1C4532', textColor: '#FFFFFF' },
-  { value: 7,  name: 'Noire',      color: '#2D3748', border: '#1A202C', textColor: '#FFFFFF' },
-  { value: 8,  name: 'Marron',     color: '#C05621', border: '#7B341E', textColor: '#FFFFFF' },
-  { value: 9,  name: 'Bleue',      color: '#3182CE', border: '#2C5282', textColor: '#FFFFFF' },
-  { value: 10, name: 'Orange',     color: '#ED8936', border: '#C05621', textColor: '#FFFFFF' },
+  { value: 1,  name: 'Blanche',    color: '#F7F7F7', border: '#AAAAAA', textColor: '#333333', sepColor: 'rgba(0,0,0,0.12)' },
+  { value: 2,  name: 'Rouge',      color: '#E53E3E', border: '#9B2C2C', textColor: '#FFFFFF', sepColor: 'rgba(255,255,255,0.4)' },
+  { value: 3,  name: 'Vert clair', color: '#68D391', border: '#276749', textColor: '#1A202C', sepColor: 'rgba(255,255,255,0.45)' },
+  { value: 4,  name: 'Mauve',      color: '#B794F4', border: '#6B46C1', textColor: '#FFFFFF', sepColor: 'rgba(255,255,255,0.4)' },
+  { value: 5,  name: 'Jaune',      color: '#F6E05E', border: '#B7791F', textColor: '#333333', sepColor: 'rgba(0,0,0,0.12)' },
+  { value: 6,  name: 'Vert foncé', color: '#276749', border: '#1C4532', textColor: '#FFFFFF', sepColor: 'rgba(255,255,255,0.35)' },
+  { value: 7,  name: 'Noire',      color: '#2D3748', border: '#1A202C', textColor: '#FFFFFF', sepColor: 'rgba(255,255,255,0.25)' },
+  { value: 8,  name: 'Marron',     color: '#C05621', border: '#7B341E', textColor: '#FFFFFF', sepColor: 'rgba(255,255,255,0.35)' },
+  { value: 9,  name: 'Bleue',      color: '#3182CE', border: '#2C5282', textColor: '#FFFFFF', sepColor: 'rgba(255,255,255,0.4)' },
+  { value: 10, name: 'Orange',     color: '#ED8936', border: '#C05621', textColor: '#FFFFFF', sepColor: 'rgba(255,255,255,0.4)' },
 ]
 
 const UNIT = 22 // px per unit width
 
+/** Affiche une réglette — pleine ou subdivisée en unités */
+function RodShape({ rod, height, showUnits }) {
+  const baseStyle = {
+    border: `2px solid ${rod.border}`,
+    borderRadius: 4,
+    overflow: 'hidden',
+    flexShrink: 0,
+  }
+
+  if (!showUnits) {
+    return (
+      <div
+        style={{
+          ...baseStyle,
+          width: rod.value * UNIT,
+          minWidth: UNIT,
+          height,
+          backgroundColor: rod.color,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: rod.textColor,
+          fontSize: 11,
+          fontWeight: 'bold',
+        }}
+      >
+        {rod.value}
+      </div>
+    )
+  }
+
+  // Mode unités : N cellules égales
+  return (
+    <div
+      style={{
+        ...baseStyle,
+        display: 'flex',
+        width: rod.value * UNIT,
+        minWidth: UNIT,
+        height,
+      }}
+    >
+      {Array.from({ length: rod.value }).map((_, i) => (
+        <div
+          key={i}
+          style={{
+            width: UNIT,
+            height: '100%',
+            backgroundColor: rod.color,
+            borderRight: i < rod.value - 1 ? `1px solid ${rod.sepColor}` : 'none',
+            boxSizing: 'border-box',
+            flexShrink: 0,
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
 export default function CuisenaireRods({ config = {}, onValidate }) {
   const { focusMode, ttsEnabled, speak } = useAccessibility()
-  const { targetNumber, showCounter = true } = config
+  const { targetNumber, showCounter = true, showUnits: showUnitsInit = false } = config
 
   const [workspace, setWorkspace] = useState([])
   const [validated, setValidated] = useState(false)
+  const [showUnits, setShowUnits] = useState(showUnitsInit)
 
   const total = workspace.reduce((sum, v) => sum + v, 0)
 
@@ -55,13 +115,32 @@ export default function CuisenaireRods({ config = {}, onValidate }) {
 
   return (
     <div>
-      {targetNumber !== undefined && (
-        <div className="mb-4 text-center">
+      {/* Cible + toggle unités */}
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+        {targetNumber !== undefined ? (
           <span className="text-lg font-bold text-blue-700 bg-blue-50 px-4 py-2 rounded-xl border border-blue-200">
             Cible : {targetNumber}
           </span>
-        </div>
-      )}
+        ) : <span />}
+
+        <button
+          onClick={() => setShowUnits((v) => !v)}
+          className={`flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors min-h-[36px] ${
+            showUnits
+              ? 'bg-indigo-100 text-indigo-700 border-indigo-300'
+              : 'bg-white text-gray-500 border-gray-300 hover:border-gray-400'
+          }`}
+          title="Afficher ou masquer les cellules unitaires"
+        >
+          <span
+            className={`inline-block w-3.5 h-3.5 rounded-sm border ${
+              showUnits ? 'bg-indigo-500 border-indigo-600' : 'bg-white border-gray-400'
+            }`}
+            aria-hidden="true"
+          />
+          Voir les unités
+        </button>
+      </div>
 
       <div className="flex gap-6 flex-wrap items-start">
         {/* Bank */}
@@ -79,26 +158,8 @@ export default function CuisenaireRods({ config = {}, onValidate }) {
                 className="flex items-center gap-2 group disabled:opacity-50"
                 style={{ cursor: validated ? 'default' : 'pointer' }}
               >
-                <div
-                  style={{
-                    width: rod.value * UNIT,
-                    minWidth: UNIT,
-                    height: 24,
-                    backgroundColor: rod.color,
-                    border: `2px solid ${rod.border}`,
-                    borderRadius: 4,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: rod.textColor,
-                    fontSize: 11,
-                    fontWeight: 'bold',
-                    transition: 'transform 0.1s',
-                    transform: 'scale(1)',
-                  }}
-                  className="group-hover:scale-105"
-                >
-                  {rod.value}
+                <div className="group-hover:scale-105 transition-transform origin-left">
+                  <RodShape rod={rod} height={24} showUnits={showUnits} />
                 </div>
                 {!focusMode && (
                   <span className="text-xs text-gray-400 w-16">{rod.name}</span>
@@ -139,21 +200,15 @@ export default function CuisenaireRods({ config = {}, onValidate }) {
                   disabled={validated}
                   title={`Retirer réglette ${rod.name} (${rod.value})`}
                   style={{
-                    width: rod.value * UNIT,
-                    minWidth: UNIT,
-                    height: 28,
-                    backgroundColor: rod.color,
-                    border: `2px solid ${rod.border}`,
-                    borderRadius: 4,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: rod.textColor,
-                    fontSize: 12,
-                    fontWeight: 'bold',
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
                     cursor: validated ? 'default' : 'pointer',
+                    display: 'block',
                   }}
-                />
+                >
+                  <RodShape rod={rod} height={28} showUnits={showUnits} />
+                </button>
               )
             })}
           </div>
