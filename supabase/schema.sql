@@ -1,5 +1,10 @@
+-- Nettoyage
+drop table if exists public.sessions cascade;
+drop table if exists public.exercises cascade;
+drop table if exists public.teachers cascade;
+
 -- Teachers table
-create table if not exists public.teachers (
+create table public.teachers (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete cascade,
   nom text not null,
@@ -9,20 +14,20 @@ create table if not exists public.teachers (
 );
 
 -- Exercises table
-create table if not exists public.exercises (
+create table public.exercises (
   id uuid primary key default gen_random_uuid(),
   teacher_id uuid references public.teachers(id) on delete cascade,
   titre text not null,
   consigne text,
   manipulative text not null check (manipulative in ('base10', 'droite-numerique', 'fractions')),
   config jsonb default '{}',
-  publié boolean default true,
+  publie boolean default true,
   token text unique default encode(gen_random_bytes(8), 'hex'),
   created_at timestamptz default now()
 );
 
--- Sessions (student results)
-create table if not exists public.sessions (
+-- Sessions table
+create table public.sessions (
   id uuid primary key default gen_random_uuid(),
   exercise_id uuid references public.exercises(id) on delete cascade,
   prenom_eleve text,
@@ -46,7 +51,7 @@ create policy "Teachers can manage own exercises" on public.exercises
   );
 
 create policy "Public read exercises by token" on public.exercises
-  for select using (publié = true);
+  for select using (publie = true);
 
 create policy "Anyone can insert sessions" on public.sessions
   for insert with check (true);

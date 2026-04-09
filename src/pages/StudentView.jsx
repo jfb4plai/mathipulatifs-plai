@@ -85,7 +85,7 @@ export default function StudentView() {
       .from('exercises')
       .select('*')
       .eq('token', token)
-      .eq('publié', true)
+      .eq('publie', true)
       .single()
       .then(({ data, error: err }) => {
         if (err || !data) {
