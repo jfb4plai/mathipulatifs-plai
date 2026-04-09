@@ -1,0 +1,235 @@
+import { useState, useEffect } from 'react'
+import { useParams, Link } from 'react-router-dom'
+import { supabase } from '../lib/supabase.js'
+import { useAccessibility } from '../contexts/AccessibilityContext.jsx'
+import Base10Blocks from '../components/manipulatives/Base10Blocks.jsx'
+import NumberLine from '../components/manipulatives/NumberLine.jsx'
+import FractionBars from '../components/manipulatives/FractionBars.jsx'
+
+// Demo configs for tokens starting with "demo-"
+const DEMO_CONFIGS = {
+  'demo-base10': {
+    titre: 'Exploration — Blocs de base 10',
+    consigne: 'Explore librement les blocs de base 10. Clique sur les blocs dans la banque pour les ajouter à ton espace de travail.',
+    manipulative: 'base10',
+    config: { maxNumber: 999, showCounter: true },
+  },
+  'demo-droite-numerique': {
+    titre: 'Exploration — Droite numérique',
+    consigne: 'Glisse le jeton sur la droite numérique pour te déplacer de 0 à 20.',
+    manipulative: 'droite-numerique',
+    config: { min: 0, max: 20, step: 1, mode: 'libre', showLabels: true },
+  },
+  'demo-fractions': {
+    titre: 'Exploration — Barres de fractions',
+    consigne: 'Clique sur les parties des barres pour les colorier. Découvre les fractions équivalentes !',
+    manipulative: 'fractions',
+    config: { denominators: [2, 3, 4, 6, 8, 12], mode: 'libre' },
+  },
+}
+
+const ENCOURAGEMENTS = [
+  'Excellent travail ! 🌟',
+  'Bravo ! Tu as bien répondu ! 👏',
+  'Super ! Continue comme ça ! 💪',
+  'Félicitations ! 🎉',
+  'Bien joué ! Tu es sur la bonne voie ! 🚀',
+]
+
+function ManipulativeComponent({ manipulative, config, onValidate }) {
+  if (manipulative === 'base10') return <Base10Blocks config={config} onValidate={onValidate} />
+  if (manipulative === 'droite-numerique') return <NumberLine config={config} onValidate={onValidate} />
+  if (manipulative === 'fractions') return <FractionBars config={config} onValidate={onValidate} />
+  return <div className="text-gray-500">Manipulable inconnu : {manipulative}</div>
+}
+
+export default function StudentView() {
+  const { token } = useParams()
+  const { dyslexicFont, largeText, focusMode, ttsEnabled, speak } = useAccessibility()
+
+  const [exercise, setExercise] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  const [prenom, setPrenom] = useState('')
+  const [prenomConfirmed, setPrenomConfirmed] = useState(false)
+  const [startTime] = useState(Date.now())
+  const [validated, setValidated] = useState(false)
+  const [encouragement] = useState(() => ENCOURAGEMENTS[Math.floor(Math.random() * ENCOURAGEMENTS.length)])
+
+  const isDemo = token?.startsWith('demo-')
+  const fontClass = dyslexicFont ? 'font-dyslexic' : ''
+  const textClass = largeText ? 'text-xl' : 'text-base'
+  const inputClass = `w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[44px] ${textClass}`
+
+  useEffect(() => {
+    if (isDemo) {
+      const demoEx = DEMO_CONFIGS[token]
+      if (demoEx) {
+        setExercise(demoEx)
+      } else {
+        setError('Démonstration introuvable.')
+      }
+      setLoading(false)
+      setPrenomConfirmed(true) // Skip name for demo
+      return
+    }
+
+    if (!supabase) {
+      setError('Base de données non configurée.')
+      setLoading(false)
+      return
+    }
+
+    supabase
+      .from('exercises')
+      .select('*')
+      .eq('token', token)
+      .eq('publié', true)
+      .single()
+      .then(({ data, error: err }) => {
+        if (err || !data) {
+          setError('Exercice introuvable ou non disponible.')
+        } else {
+          setExercise(data)
+        }
+        setLoading(false)
+      })
+  }, [token, isDemo])
+
+  const handleValidate = async (result) => {
+    setValidated(true)
+    const duree = Math.round((Date.now() - startTime) / 1000)
+
+    if (ttsEnabled) {
+      speak(encouragement)
+    }
+
+    if (!isDemo && supabase && exercise?.id) {
+      await supabase.from('sessions').insert({
+        exercise_id: exercise.id,
+        prenom_eleve: prenom || null,
+        reponse: result,
+        correct: result?.correct ?? null,
+        duree_secondes: duree,
+      })
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-blue-600 text-lg animate-pulse">Chargement…</div>
+      </div>
+    )
+  }
+
+  if (error || !exercise) {
+    return (
+      <div className={`${fontClass} ${textClass} max-w-lg mx-auto px-4 py-12 text-center`}>
+        <div className="text-5xl mb-4">❓</div>
+        <h1 className="text-xl font-bold text-gray-800 mb-2">Exercice introuvable</h1>
+        <p className="text-gray-500 mb-6 text-sm">{error || 'Cet exercice n\'existe pas ou n\'est plus disponible.'}</p>
+        <Link to="/" className="text-blue-500 hover:underline">← Retour à l'accueil</Link>
+      </div>
+    )
+  }
+
+  return (
+    <div className={`${fontClass} ${textClass} max-w-3xl mx-auto px-4 py-6`}>
+      {/* Header */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-1">
+          {isDemo && (
+            <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">
+              Mode démo
+            </span>
+          )}
+          <Link to="/" className="text-xs text-gray-400 hover:text-gray-600">
+            Mathipulatifs PLAI
+          </Link>
+        </div>
+        <h1 className="text-2xl font-bold text-gray-800">{exercise.titre}</h1>
+      </div>
+
+      {/* Consigne */}
+      {exercise.consigne && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-xl">
+          <div className="flex items-start gap-3">
+            <div className="flex-1">
+              <p className="text-blue-800 font-medium">{exercise.consigne}</p>
+            </div>
+            {ttsEnabled && (
+              <button
+                onClick={() => speak(exercise.consigne)}
+                className="text-blue-500 hover:text-blue-700 shrink-0 text-xl min-h-[44px] min-w-[44px] flex items-center justify-center"
+                title="Lire à voix haute"
+                aria-label="Lire la consigne à voix haute"
+              >
+                🔊
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Prenom step (non-demo only) */}
+      {!isDemo && !prenomConfirmed && (
+        <div className="mb-6 bg-white rounded-2xl border border-gray-200 p-6">
+          <h2 className="font-bold text-gray-700 mb-3">Avant de commencer…</h2>
+          <p className="text-gray-600 text-sm mb-4">Entre ton prénom pour que ton enseignant·e puisse suivre tes résultats.</p>
+          <div className="flex gap-3">
+            <input
+              type="text"
+              value={prenom}
+              onChange={(e) => setPrenom(e.target.value)}
+              placeholder="Ton prénom"
+              className={`flex-1 ${inputClass}`}
+              onKeyDown={(e) => e.key === 'Enter' && setPrenomConfirmed(true)}
+              autoFocus
+            />
+            <button
+              onClick={() => setPrenomConfirmed(true)}
+              className="bg-blue-500 hover:bg-blue-600 text-white font-bold px-6 rounded-xl transition-colors min-h-[44px]"
+            >
+              Commencer
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Manipulative */}
+      {prenomConfirmed && (
+        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+          {!focusMode && !isDemo && prenom && (
+            <p className="text-sm text-gray-400 mb-4">Bonjour {prenom} 👋</p>
+          )}
+          <ManipulativeComponent
+            manipulative={exercise.manipulative}
+            config={exercise.config || {}}
+            onValidate={handleValidate}
+          />
+        </div>
+      )}
+
+      {/* Post-validation feedback */}
+      {validated && (
+        <div className="mt-6 bg-green-50 border border-green-200 rounded-2xl p-6 text-center">
+          <div className="text-4xl mb-2">🎉</div>
+          <p className="text-xl font-bold text-green-700 mb-2">{encouragement}</p>
+          {!focusMode && (
+            <p className="text-green-600 text-sm">
+              Ton enseignant·e pourra voir ta réponse dans le tableau de bord.
+            </p>
+          )}
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 text-sm text-green-600 hover:text-green-800 border border-green-300 hover:border-green-500 py-2 px-4 rounded-xl hover:bg-green-100 transition-colors min-h-[44px]"
+          >
+            Recommencer
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
