@@ -64,3 +64,27 @@ create policy "Teachers can read own sessions" on public.sessions
       where t.user_id = auth.uid()
     )
   );
+
+-- Gallery table (exercices partagés entre enseignants FWB)
+create table if not exists public.gallery (
+  id uuid primary key default gen_random_uuid(),
+  teacher_id uuid references public.teachers(id) on delete cascade,
+  exercise_id uuid references public.exercises(id) on delete cascade unique,
+  titre text not null,
+  consigne text,
+  manipulative text not null,
+  config jsonb default '{}',
+  niveau text default 'tous',
+  description_peda text,
+  created_at timestamptz default now()
+);
+
+alter table public.gallery enable row level security;
+
+create policy "Anyone can read gallery" on public.gallery
+  for select using (true);
+
+create policy "Teachers can manage own gallery entries" on public.gallery
+  for all using (
+    teacher_id in (select id from public.teachers where user_id = auth.uid())
+  );

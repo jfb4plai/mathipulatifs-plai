@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard.jsx'
 import ExerciseCreate from './pages/ExerciseCreate.jsx'
 import StudentView from './pages/StudentView.jsx'
 import Guide from './pages/Guide.jsx'
+import Gallery from './pages/Gallery.jsx'
 import NotFound from './pages/NotFound.jsx'
 
 function ProtectedRoute({ children }) {
@@ -70,6 +71,7 @@ export default function App() {
             />
             <Route path="/exercice/:token" element={<StudentView />} />
             <Route path="/guide" element={<Guide />} />
+            <Route path="/galerie" element={<Gallery />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </div>

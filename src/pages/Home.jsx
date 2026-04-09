@@ -182,9 +182,15 @@ export default function Home() {
           <p className="mb-2">
             Ancrage scientifique : Jolivel (2023, corpus RISS) · Najjar (2015, corpus RISS)
           </p>
-          <Link to="/guide" className="text-blue-500 hover:underline font-medium">
-            📖 Mode d'emploi &amp; références scientifiques complètes
-          </Link>
+          <div className="flex items-center justify-center gap-4 flex-wrap">
+            <Link to="/guide" className="text-blue-500 hover:underline font-medium">
+              📖 Mode d'emploi &amp; références scientifiques
+            </Link>
+            <span className="text-gray-200">|</span>
+            <Link to="/galerie" className="text-indigo-500 hover:underline font-medium">
+              🏫 Galerie FWB — exercices partagés
+            </Link>
+          </div>
         </footer>
       )}
     </div>

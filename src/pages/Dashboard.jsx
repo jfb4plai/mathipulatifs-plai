@@ -111,6 +111,8 @@ function printResults(ex, sessions) {
   setTimeout(() => w.print(), 500)
 }
 
+const NIVEAUX_SHARE = ['tous','P1','P2','P3','P4','P5','P6','S1','S2','S3','S4','S5','S6','S7']
+
 export default function Dashboard() {
   const [teacher, setTeacher] = useState(null)
   const [exercises, setExercises] = useState([])
@@ -120,6 +122,11 @@ export default function Dashboard() {
   const [resultsPanel, setResultsPanel] = useState(null) // exercise id
   const [sessionsData, setSessionsData] = useState({}) // exerciseId → sessions[]
   const [loadingSessions, setLoadingSessions] = useState(false)
+  const [sharePanel, setSharePanel] = useState(null) // exercise id
+  const [shareNiveau, setShareNiveau] = useState('tous')
+  const [shareDesc, setShareDesc] = useState('')
+  const [sharing, setSharing] = useState(false)
+  const [sharedIds, setSharedIds] = useState(new Set()) // exercise ids already in gallery
 
   const navigate = useNavigate()
   const { dyslexicFont, largeText, focusMode } = useAccessibility()
@@ -165,6 +172,12 @@ export default function Dashboard() {
             counts[s.exercise_id] = (counts[s.exercise_id] || 0) + 1
           })
           setSessionCounts(counts)
+
+          const { data: galleryData } = await supabase
+            .from('gallery')
+            .select('exercise_id')
+            .eq('teacher_id', teacherData.id)
+          setSharedIds(new Set((galleryData || []).map((g) => g.exercise_id)))
         }
       }
     } catch (err) {
@@ -215,6 +228,46 @@ export default function Dashboard() {
       setCopyFeedback(token)
       setTimeout(() => setCopyFeedback(null), 2000)
     })
+  }
+
+  const toggleSharePanel = (exId) => {
+    if (sharePanel === exId) {
+      setSharePanel(null)
+    } else {
+      setSharePanel(exId)
+      setShareNiveau('tous')
+      setShareDesc('')
+    }
+  }
+
+  const handleShare = async (ex) => {
+    if (!teacher || !supabase) return
+    setSharing(true)
+    try {
+      await supabase.from('gallery').insert({
+        teacher_id: teacher.id,
+        exercise_id: ex.id,
+        titre: ex.titre,
+        consigne: ex.consigne,
+        manipulative: ex.manipulative,
+        config: ex.config,
+        niveau: shareNiveau,
+        description_peda: shareDesc || null,
+      })
+      setSharedIds((prev) => new Set([...prev, ex.id]))
+      setSharePanel(null)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setSharing(false)
+    }
+  }
+
+  const handleUnshare = async (ex) => {
+    if (!teacher || !supabase) return
+    if (!confirm("Retirer cet exercice de la galerie FWB ?")) return
+    await supabase.from('gallery').delete().eq('exercise_id', ex.id).eq('teacher_id', teacher.id)
+    setSharedIds((prev) => { const s = new Set(prev); s.delete(ex.id); return s })
   }
 
   if (loading) {
@@ -300,6 +353,8 @@ export default function Dashboard() {
               const sessCount = sessionCounts[ex.id] || 0
               const isOpen = resultsPanel === ex.id
               const sessions = sessionsData[ex.id] || []
+              const isShared = sharedIds.has(ex.id)
+              const isShareOpen = sharePanel === ex.id
 
               return (
                 <div key={ex.id} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
@@ -359,6 +414,27 @@ export default function Dashboard() {
                         >
                           Aperçu
                         </a>
+                        {isShared ? (
+                          <button
+                            onClick={() => handleUnshare(ex)}
+                            className="text-sm text-emerald-600 border border-emerald-200 bg-emerald-50 hover:bg-red-50 hover:text-red-500 hover:border-red-200 px-3 py-2 rounded-lg transition-colors min-h-[44px]"
+                            title="Partagé dans la galerie FWB — cliquer pour retirer"
+                          >
+                            🏫 Partagé
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => toggleSharePanel(ex.id)}
+                            className={`text-sm font-medium border px-3 py-2 rounded-lg transition-colors min-h-[44px] ${
+                              isShareOpen
+                                ? 'bg-indigo-500 text-white border-indigo-500'
+                                : 'text-indigo-500 hover:text-indigo-700 border-indigo-200 hover:border-indigo-400'
+                            }`}
+                            title="Partager dans la galerie FWB"
+                          >
+                            🏫 Partager
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDelete(ex.id)}
                           className="text-sm text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-200 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors min-h-[44px]"
@@ -431,6 +507,60 @@ export default function Dashboard() {
                           </div>
                         </div>
                       )}
+                    </div>
+                  )}
+                  {/* Share panel */}
+                  {isShareOpen && (
+                    <div className="border-t border-indigo-100 bg-indigo-50 p-4">
+                      <h4 className="font-semibold text-indigo-800 text-sm mb-3">
+                        🏫 Partager dans la Galerie FWB
+                      </h4>
+                      {!focusMode && (
+                        <p className="text-xs text-indigo-600 mb-3">
+                          Votre exercice sera visible par tous les enseignants FWB dans la galerie.
+                        </p>
+                      )}
+                      <div className="flex flex-wrap gap-3 mb-3">
+                        <div className="flex flex-col gap-1">
+                          <label className="text-xs font-semibold text-indigo-700">Niveau</label>
+                          <select
+                            value={shareNiveau}
+                            onChange={(e) => setShareNiveau(e.target.value)}
+                            className="text-sm border border-indigo-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                          >
+                            {NIVEAUX_SHARE.map((n) => (
+                              <option key={n} value={n}>{n === 'tous' ? 'Tous niveaux' : n}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex flex-col gap-1 flex-1 min-w-[200px]">
+                          <label className="text-xs font-semibold text-indigo-700">
+                            Description pédagogique <span className="font-normal text-indigo-400">(optionnel)</span>
+                          </label>
+                          <textarea
+                            value={shareDesc}
+                            onChange={(e) => setShareDesc(e.target.value)}
+                            placeholder="Ex : Utilisé en P2 pour consolider la décomposition des nombres jusqu'à 10. Idéal pour les élèves dyscalculiques."
+                            rows={2}
+                            className="text-sm border border-indigo-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleShare(ex)}
+                          disabled={sharing}
+                          className="bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors min-h-[36px] disabled:opacity-50"
+                        >
+                          {sharing ? "Publication…" : "Publier dans la galerie"}
+                        </button>
+                        <button
+                          onClick={() => setSharePanel(null)}
+                          className="text-sm text-gray-500 hover:text-gray-700 border border-gray-200 px-4 py-2 rounded-lg transition-colors"
+                        >
+                          Annuler
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
