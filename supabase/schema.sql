@@ -19,7 +19,7 @@ create table public.exercises (
   teacher_id uuid references public.teachers(id) on delete cascade,
   titre text not null,
   consigne text,
-  manipulative text not null check (manipulative in ('base10', 'droite-numerique', 'fractions')),
+  manipulative text not null check (manipulative in ('base10', 'droite-numerique', 'fractions', 'cuisenaire')),
   config jsonb default '{}',
   publie boolean default true,
   token text unique default encode(gen_random_bytes(8), 'hex'),

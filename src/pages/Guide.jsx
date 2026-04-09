@@ -41,6 +41,22 @@ const RISS_REFS = [
     content:
       "L'enseignement explicite réduit l'anxiété mathématique en rendant transparents les objectifs, les critères de réussite et les étapes de résolution. Particulièrement efficace en contexte prioritaire, il structure l'environnement cognitif et affectif.",
   },
+  {
+    id: 'vergoni2018',
+    citation:
+      "Vergoni, A. (2018). Les apports de la manipulation des réglettes Cuisenaire en mathématiques. DUMAS.",
+    riss: 'dumas-01939040',
+    content:
+      "La manipulation des réglettes Cuisenaire facilite le passage à l'abstraction et rend plus efficace la construction des savoirs mathématiques. La progression du concret vers l'abstrait — caractéristique de cet outil — soutient durablement la compréhension des relations numériques.",
+  },
+  {
+    id: 'lacombe2021',
+    citation:
+      "Lacombe, N., de Chambrier, A.-F. & Dias, T. (2021). Des données probantes au service de l'enseignement différencié des mathématiques.",
+    riss: 'W4312556943',
+    content:
+      "L'approche CPA (Concret–Pictural–Abstrait), héritée des travaux de Bruner, propose un travail ancré dans le concret, puis la représentation en images, avant le passage à l'abstraction. Les données probantes confirment son efficacité pour l'enseignement différencié des mathématiques.",
+  },
 ]
 
 const HOWTO = [
@@ -54,6 +70,7 @@ const HOWTO = [
       "Blocs de base 10 : cliquer Centaine / Dizaine / Unité pour ajouter des blocs à l'espace de travail. Cliquer un bloc dans l'espace pour le retirer.",
       'Droite numérique : glisser le jeton pour se déplacer sur la droite graduée.',
       'Barres de fractions : cliquer les parties des barres pour les colorier et découvrir les équivalences.',
+      "Réglettes Cuisenaire : cliquer une réglette dans la banque pour l'ajouter, cliquer dans l'espace pour la retirer. Cible par défaut : 10.",
     ],
   },
   {
@@ -77,6 +94,8 @@ const HOWTO = [
       '— Blocs base 10 : nombre cible optionnel, bouton Valider activé.',
       '— Droite numérique : min, max, pas, mode libre ou placer.',
       '— Barres de fractions : choisir les dénominateurs, mode libre ou comparer.',
+      "— Réglettes Cuisenaire : total cible optionnel (ex. 10).",
+      "Option « Mode CPA guidé » : après la manipulation, l'élève est guidé vers le dessin (Pictural) puis la notation (Abstrait).",
       'Valider → un lien unique (token) est généré automatiquement.',
     ],
   },
@@ -134,6 +153,14 @@ const MANIPULATIVES = [
     desc: "Des barres horizontales divisées en N parts colorables. Détection automatique des équivalences (ex. 2/4 = 1/2). Dénominateurs configurables : 2, 3, 4, 5, 6, 8, 10, 12.",
     cpa: "Concret : coloration des parts → Semi-concret : dessin de la fraction → Abstrait : notation a/b",
   },
+  {
+    emoji: '🌈',
+    name: 'Réglettes Cuisenaire',
+    levels: 'P1–P5 · S1–S2 en difficulté',
+    skills: "Décomposition additive, compléments, multiplication, fractions (introduction)",
+    desc: "10 réglettes colorées de valeur 1 (blanche) à 10 (orange). L'élève compose un nombre cible en combinant des réglettes. Chaque couleur est unique — la couleur encode la valeur.",
+    cpa: "Concret : assemblage des réglettes → Semi-concret : schéma en barres → Abstrait : égalité additive",
+  },
 ]
 
 export default function Guide() {
@@ -155,7 +182,7 @@ export default function Guide() {
 
       {/* Les 3 manipulables */}
       <section className="mb-10">
-        <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Les 3 manipulables</h2>
+        <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Les 4 manipulables</h2>
         <div className="space-y-4">
           {MANIPULATIVES.map((m) => (
             <div key={m.name} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">

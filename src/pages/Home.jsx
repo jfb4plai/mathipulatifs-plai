@@ -26,6 +26,14 @@ const manipulatives = [
     couleur: 'purple',
     demoToken: 'demo-fractions',
   },
+  {
+    id: 'cuisenaire',
+    emoji: '🌈',
+    titre: 'Réglettes Cuisenaire',
+    description: 'Composer et décomposer des nombres avec des réglettes colorées. Chaque couleur représente une valeur de 1 à 10.',
+    couleur: 'orange',
+    demoToken: 'demo-cuisenaire',
+  },
 ]
 
 const colorMap = {
@@ -43,6 +51,11 @@ const colorMap = {
     card: 'border-purple-200 hover:border-purple-400',
     badge: 'bg-purple-100 text-purple-700',
     btn: 'bg-purple-500 hover:bg-purple-600 text-white',
+  },
+  orange: {
+    card: 'border-orange-200 hover:border-orange-400',
+    badge: 'bg-orange-100 text-orange-700',
+    btn: 'bg-orange-500 hover:bg-orange-600 text-white',
   },
 }
 
@@ -82,7 +95,7 @@ export default function Home() {
           </p>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {manipulatives.map((m) => {
             const c = colorMap[m.couleur]
             return (

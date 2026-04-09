@@ -5,6 +5,7 @@ import { useAccessibility } from '../contexts/AccessibilityContext.jsx'
 import Base10Blocks from '../components/manipulatives/Base10Blocks.jsx'
 import NumberLine from '../components/manipulatives/NumberLine.jsx'
 import FractionBars from '../components/manipulatives/FractionBars.jsx'
+import CuisenaireRods from '../components/manipulatives/CuisenaireRods.jsx'
 
 // Demo configs for tokens starting with "demo-"
 const DEMO_CONFIGS = {
@@ -26,6 +27,12 @@ const DEMO_CONFIGS = {
     manipulative: 'fractions',
     config: { denominators: [2, 3, 4, 6, 8, 12], mode: 'libre' },
   },
+  'demo-cuisenaire': {
+    titre: 'Exploration — Réglettes Cuisenaire',
+    consigne: 'Clique sur les réglettes pour les ajouter à ton espace de travail. Compose le nombre 10 de différentes façons !',
+    manipulative: 'cuisenaire',
+    config: { targetNumber: 10, showCounter: true },
+  },
 }
 
 const ENCOURAGEMENTS = [
@@ -40,6 +47,7 @@ function ManipulativeComponent({ manipulative, config, onValidate }) {
   if (manipulative === 'base10') return <Base10Blocks config={config} onValidate={onValidate} />
   if (manipulative === 'droite-numerique') return <NumberLine config={config} onValidate={onValidate} />
   if (manipulative === 'fractions') return <FractionBars config={config} onValidate={onValidate} />
+  if (manipulative === 'cuisenaire') return <CuisenaireRods config={config} onValidate={onValidate} />
   return <div className="text-gray-500">Manipulable inconnu : {manipulative}</div>
 }
 
@@ -56,6 +64,11 @@ export default function StudentView() {
   const [startTime] = useState(Date.now())
   const [validated, setValidated] = useState(false)
   const [encouragement] = useState(() => ENCOURAGEMENTS[Math.floor(Math.random() * ENCOURAGEMENTS.length)])
+
+  // CPA phases: 'concret' | 'pictural' | 'abstrait' | 'done'
+  const [cpaPhase, setCpaPhase] = useState('concret')
+  const [cpaAbstractInput, setCpaAbstractInput] = useState('')
+  const [manipResult, setManipResult] = useState(null)
 
   const isDemo = token?.startsWith('demo-')
   const fontClass = dyslexicFont ? 'font-dyslexic' : ''
@@ -97,14 +110,7 @@ export default function StudentView() {
       })
   }, [token, isDemo])
 
-  const handleValidate = async (result) => {
-    setValidated(true)
-    const duree = Math.round((Date.now() - startTime) / 1000)
-
-    if (ttsEnabled) {
-      speak(encouragement)
-    }
-
+  const saveSession = async (result, duree) => {
     if (!isDemo && supabase && exercise?.id) {
       await supabase.from('sessions').insert({
         exercise_id: exercise.id,
@@ -114,6 +120,32 @@ export default function StudentView() {
         duree_secondes: duree,
       })
     }
+  }
+
+  const handleValidate = async (result) => {
+    const duree = Math.round((Date.now() - startTime) / 1000)
+    setManipResult({ ...result, duree })
+
+    if (exercise?.config?.cpaMode) {
+      // Enter CPA pictural phase after concret
+      setCpaPhase('pictural')
+    } else {
+      setValidated(true)
+      if (ttsEnabled) speak(encouragement)
+      await saveSession(result, duree)
+    }
+  }
+
+  const handleCpaPictural = () => {
+    setCpaPhase('abstrait')
+  }
+
+  const handleCpaAbstrait = async () => {
+    setCpaPhase('done')
+    setValidated(true)
+    if (ttsEnabled) speak(encouragement)
+    const fullResult = { ...manipResult, cpaAbstractInput }
+    await saveSession(fullResult, manipResult?.duree ?? 0)
   }
 
   if (loading) {
@@ -198,11 +230,17 @@ export default function StudentView() {
         </div>
       )}
 
-      {/* Manipulative */}
-      {prenomConfirmed && (
+      {/* Manipulative — phase Concret */}
+      {prenomConfirmed && cpaPhase === 'concret' && (
         <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
           {!focusMode && !isDemo && prenom && (
             <p className="text-sm text-gray-400 mb-4">Bonjour {prenom} 👋</p>
+          )}
+          {exercise.config?.cpaMode && !focusMode && (
+            <div className="mb-4 flex items-center gap-2">
+              <span className="text-xs font-bold bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">Étape 1 — Concret</span>
+              <span className="text-xs text-gray-400">Manipule, explore, construis.</span>
+            </div>
           )}
           <ManipulativeComponent
             manipulative={exercise.manipulative}
@@ -212,11 +250,70 @@ export default function StudentView() {
         </div>
       )}
 
+      {/* CPA phase 2 — Pictural */}
+      {prenomConfirmed && cpaPhase === 'pictural' && (
+        <div className="bg-white rounded-2xl border border-amber-200 p-6 shadow-sm">
+          <div className="mb-4 flex items-center gap-2">
+            <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Étape 2 — Pictural</span>
+          </div>
+          <div className="text-center py-6">
+            <div className="text-5xl mb-4">✏️</div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Dessine ce que tu as construit</h2>
+            <p className="text-gray-600 text-sm mb-6">
+              Sur ton cahier ou ta feuille, fais un schéma de ce que tu viens de créer avec le manipulable.
+            </p>
+            <button
+              onClick={handleCpaPictural}
+              className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-xl transition-colors min-h-[44px]"
+            >
+              {"J'ai dessiné, continuer →"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* CPA phase 3 — Abstrait */}
+      {prenomConfirmed && cpaPhase === 'abstrait' && (
+        <div className="bg-white rounded-2xl border border-purple-200 p-6 shadow-sm">
+          <div className="mb-4 flex items-center gap-2">
+            <span className="text-xs font-bold bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">Étape 3 — Abstrait</span>
+          </div>
+          <div className="text-center py-4">
+            <div className="text-5xl mb-4">🔢</div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Écris la notation mathématique</h2>
+            <p className="text-gray-600 text-sm mb-6">
+              Traduis ce que tu as construit en chiffres et symboles mathématiques.
+            </p>
+            <input
+              type="text"
+              value={cpaAbstractInput}
+              onChange={(e) => setCpaAbstractInput(e.target.value)}
+              placeholder="Ex : 2 + 3 + 5 = 10"
+              className="w-full max-w-sm mx-auto block px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 text-center text-lg font-mono mb-6"
+              autoFocus
+              onKeyDown={(e) => e.key === 'Enter' && cpaAbstractInput.trim() && handleCpaAbstrait()}
+            />
+            <button
+              onClick={handleCpaAbstrait}
+              disabled={!cpaAbstractInput.trim()}
+              className="bg-purple-500 hover:bg-purple-600 disabled:opacity-40 text-white font-bold py-3 px-8 rounded-xl transition-colors min-h-[44px]"
+            >
+              Valider ma notation
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Post-validation feedback */}
       {validated && (
         <div className="mt-6 bg-green-50 border border-green-200 rounded-2xl p-6 text-center">
           <div className="text-4xl mb-2">🎉</div>
           <p className="text-xl font-bold text-green-700 mb-2">{encouragement}</p>
+          {exercise.config?.cpaMode && cpaAbstractInput && !focusMode && (
+            <p className="text-gray-600 text-sm mb-2">
+              Ta notation : <span className="font-mono font-bold text-purple-700">{cpaAbstractInput}</span>
+            </p>
+          )}
           {!focusMode && (
             <p className="text-green-600 text-sm">
               Ton enseignant·e pourra voir ta réponse dans le tableau de bord.

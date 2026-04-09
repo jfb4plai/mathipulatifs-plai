@@ -22,6 +22,12 @@ const manipulatives = [
     titre: 'Barres de fractions',
     description: 'Visualiser, comparer, trouver des fractions équivalentes',
   },
+  {
+    id: 'cuisenaire',
+    emoji: '🌈',
+    titre: 'Réglettes Cuisenaire',
+    description: 'Décomposer, additionner, comparer avec des réglettes colorées',
+  },
 ]
 
 const FRACTION_DENOMINATORS = [2, 3, 4, 5, 6, 8, 10, 12]
@@ -33,6 +39,7 @@ export default function ExerciseCreate() {
   const [titre, setTitre] = useState('')
   const [consigne, setConsigne] = useState('')
   const [selectedManip, setSelectedManip] = useState(null)
+  const [cpaMode, setCpaMode] = useState(false)
 
   // Base10 config
   const [b10Target, setB10Target] = useState('')
@@ -47,6 +54,9 @@ export default function ExerciseCreate() {
   // Fractions config
   const [fracDenominators, setFracDenominators] = useState([2, 3, 4, 6, 8])
   const [fracMode, setFracMode] = useState('libre')
+
+  // Cuisenaire config
+  const [cuiTarget, setCuiTarget] = useState('')
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -71,6 +81,7 @@ export default function ExerciseCreate() {
         targetNumber: b10Target !== '' ? parseInt(b10Target) : undefined,
         maxNumber: parseInt(b10Max),
         showCounter: true,
+        cpaMode,
       }
     }
     if (selectedManip === 'droite-numerique') {
@@ -80,12 +91,21 @@ export default function ExerciseCreate() {
         step: parseInt(dnStep),
         mode: dnMode,
         showLabels: true,
+        cpaMode,
       }
     }
     if (selectedManip === 'fractions') {
       return {
         denominators: fracDenominators,
         mode: fracMode,
+        cpaMode,
+      }
+    }
+    if (selectedManip === 'cuisenaire') {
+      return {
+        targetNumber: cuiTarget !== '' ? parseInt(cuiTarget) : undefined,
+        showCounter: true,
+        cpaMode,
       }
     }
     return {}
@@ -341,6 +361,45 @@ export default function ExerciseCreate() {
                 </div>
               </div>
             )}
+
+            {selectedManip === 'cuisenaire' && (
+              <div className="space-y-4">
+                <div>
+                  <label className={labelClass}>Total cible (optionnel)</label>
+                  <input
+                    type="number"
+                    value={cuiTarget}
+                    onChange={(e) => setCuiTarget(e.target.value)}
+                    min={1}
+                    max={100}
+                    placeholder="Ex : 10 (laisser vide pour exploration libre)"
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* CPA mode — for all manipulatives */}
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={cpaMode}
+                  onChange={(e) => setCpaMode(e.target.checked)}
+                  className="mt-1 w-5 h-5 accent-blue-500 cursor-pointer"
+                />
+                <div>
+                  <div className="font-semibold text-gray-700 text-sm group-hover:text-blue-600 transition-colors">
+                    Mode CPA guidé
+                  </div>
+                  {!focusMode && (
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      Après la manipulation, guide l'élève vers la représentation picturale (dessin) puis abstraite (notation).
+                    </div>
+                  )}
+                </div>
+              </label>
+            </div>
           </div>
         )}
 
