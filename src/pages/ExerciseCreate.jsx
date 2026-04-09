@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAccessibility } from '../contexts/AccessibilityContext.jsx'
 
@@ -46,6 +46,8 @@ const FRACTION_DENOMINATORS = [2, 3, 4, 5, 6, 8, 10, 12]
 
 export default function ExerciseCreate() {
   const navigate = useNavigate()
+  const { id: editId } = useParams() // présent uniquement en mode édition
+  const isEditMode = Boolean(editId)
   const { dyslexicFont, largeText, focusMode } = useAccessibility()
 
   const [titre, setTitre] = useState('')
@@ -82,6 +84,7 @@ export default function ExerciseCreate() {
   const [chartStart, setChartStart] = useState(1)
 
   const [loading, setLoading] = useState(false)
+  const [loadingExercise, setLoadingExercise] = useState(isEditMode)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(null)
   const [createdToken, setCreatedToken] = useState(null)
@@ -91,6 +94,62 @@ export default function ExerciseCreate() {
   const textClass = largeText ? 'text-xl' : 'text-base'
   const inputClass = `w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[44px] ${textClass}`
   const labelClass = 'block text-sm font-semibold text-gray-700 mb-1'
+
+  // Chargement de l'exercice à modifier
+  useEffect(() => {
+    if (!isEditMode || !supabase) return
+    const loadExercise = async () => {
+      try {
+        const { data, error: err } = await supabase
+          .from('exercises')
+          .select('*')
+          .eq('id', editId)
+          .single()
+        if (err) throw err
+
+        const cfg = data.config || {}
+        setTitre(data.titre)
+        setConsigne(data.consigne || '')
+        setSelectedManip(data.manipulative)
+        setCpaMode(cfg.cpaMode || false)
+
+        // Pré-remplissage selon le manipulable
+        if (data.manipulative === 'base10') {
+          setB10Target(cfg.targetNumber !== undefined ? String(cfg.targetNumber) : '')
+          setB10Max(cfg.maxNumber || 999)
+        }
+        if (data.manipulative === 'droite-numerique') {
+          setDnMin(cfg.min ?? 0)
+          setDnMax(cfg.max ?? 20)
+          setDnStep(cfg.step ?? 1)
+          setDnMode(cfg.mode || 'libre')
+        }
+        if (data.manipulative === 'fractions') {
+          setFracDenominators(cfg.denominators || [2, 3, 4, 6, 8])
+          setFracMode(cfg.mode || 'libre')
+        }
+        if (data.manipulative === 'cuisenaire') {
+          setCuiTarget(cfg.targetNumber !== undefined ? String(cfg.targetNumber) : '')
+          setCuiShowUnits(cfg.showUnits || false)
+        }
+        if (data.manipulative === 'cadres10') {
+          setTenFrames(cfg.frames || 1)
+          setTenTarget(cfg.targetNumber !== undefined ? String(cfg.targetNumber) : '')
+          setTenColor(cfg.counterColor || 'red')
+        }
+        if (data.manipulative === 'grille100') {
+          setChartMode(cfg.mode || 'libre')
+          setChartMultiple(cfg.multipleOf || 2)
+          setChartStart(cfg.startAt ?? 1)
+        }
+      } catch (err) {
+        setError("Impossible de charger l'exercice.")
+      } finally {
+        setLoadingExercise(false)
+      }
+    }
+    loadExercise()
+  }, [editId, isEditMode])
 
   const toggleFracDenominator = (d) => {
     setFracDenominators((prev) =>
@@ -167,32 +226,49 @@ export default function ExerciseCreate() {
 
     setLoading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Non authentifié')
-
-      const { data: teacherData, error: tErr } = await supabase
-        .from('teachers')
-        .select('id')
-        .eq('user_id', user.id)
-        .single()
-      if (tErr) throw tErr
-
       const config = buildConfig()
-      const { data: exData, error: exErr } = await supabase
-        .from('exercises')
-        .insert({
-          teacher_id: teacherData.id,
-          titre,
-          consigne: consigne || null,
-          manipulative: selectedManip,
-          config,
-        })
-        .select()
-        .single()
-      if (exErr) throw exErr
 
-      setCreatedToken(exData.token)
-      setSuccess('Exercice créé avec succès !')
+      if (isEditMode) {
+        // Mode édition — update uniquement titre/consigne/config
+        // Le token et le manipulable restent identiques
+        const { error: upErr } = await supabase
+          .from('exercises')
+          .update({
+            titre,
+            consigne: consigne || null,
+            config,
+          })
+          .eq('id', editId)
+        if (upErr) throw upErr
+        setSuccess('modifié')
+      } else {
+        // Mode création
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) throw new Error('Non authentifié')
+
+        const { data: teacherData, error: tErr } = await supabase
+          .from('teachers')
+          .select('id')
+          .eq('user_id', user.id)
+          .single()
+        if (tErr) throw tErr
+
+        const { data: exData, error: exErr } = await supabase
+          .from('exercises')
+          .insert({
+            teacher_id: teacherData.id,
+            titre,
+            consigne: consigne || null,
+            manipulative: selectedManip,
+            config,
+          })
+          .select()
+          .single()
+        if (exErr) throw exErr
+
+        setCreatedToken(exData.token)
+        setSuccess('créé')
+      }
     } catch (err) {
       setError(err.message || 'Une erreur est survenue.')
     } finally {
@@ -210,7 +286,17 @@ export default function ExerciseCreate() {
     })
   }
 
-  if (success && studentUrl) {
+  // Écran de chargement (mode édition)
+  if (loadingExercise) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-blue-600 text-lg animate-pulse">Chargement de l'exercice…</div>
+      </div>
+    )
+  }
+
+  // Écran de succès — création
+  if (success === 'créé' && studentUrl) {
     return (
       <div className={`${fontClass} ${textClass} max-w-2xl mx-auto px-4 py-12`}>
         <div className="bg-green-50 border border-green-200 rounded-2xl p-8 text-center">
@@ -239,6 +325,27 @@ export default function ExerciseCreate() {
     )
   }
 
+  // Écran de succès — modification
+  if (success === 'modifié') {
+    return (
+      <div className={`${fontClass} ${textClass} max-w-2xl mx-auto px-4 py-12`}>
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-8 text-center">
+          <div className="text-5xl mb-4">✏️</div>
+          <h2 className="text-2xl font-bold text-blue-800 mb-2">Exercice modifié !</h2>
+          <p className="text-blue-600 mb-6">
+            Les modifications sont enregistrées. Le lien de partage reste inchangé.
+          </p>
+          <Link
+            to="/tableau-de-bord"
+            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-xl transition-colors min-h-[44px] inline-flex items-center"
+          >
+            Retour au tableau de bord
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={`${fontClass} ${textClass} max-w-3xl mx-auto px-4 py-8`}>
       {/* Header */}
@@ -249,8 +356,21 @@ export default function ExerciseCreate() {
         >
           ← Retour
         </Link>
-        <h1 className="text-2xl font-bold text-gray-800">Créer un exercice</h1>
+        <h1 className="text-2xl font-bold text-gray-800">
+          {isEditMode ? 'Modifier l\'exercice' : 'Créer un exercice'}
+        </h1>
+        {isEditMode && (
+          <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-medium">
+            Modification
+          </span>
+        )}
       </div>
+
+      {isEditMode && !focusMode && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl text-sm">
+          ℹ️ En mode modification, le manipulable ne peut pas être changé. Le lien partagé avec vos élèves reste identique.
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
@@ -293,15 +413,21 @@ export default function ExerciseCreate() {
         {/* Manipulative choice */}
         <div className="bg-white rounded-2xl border border-gray-200 p-6">
           <h2 className="font-bold text-gray-700 mb-4">2. Choisir un manipulable *</h2>
+          {isEditMode && (
+            <p className="text-xs text-gray-400 mb-3 italic">Le manipulable ne peut pas être modifié après création.</p>
+          )}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {manipulatives.map((m) => (
               <button
                 key={m.id}
                 type="button"
-                onClick={() => setSelectedManip(m.id)}
+                onClick={() => !isEditMode && setSelectedManip(m.id)}
+                disabled={isEditMode}
                 className={`p-4 rounded-xl border-2 text-left transition-all min-h-[44px] ${
                   selectedManip === m.id
                     ? 'border-blue-500 bg-blue-50'
+                    : isEditMode
+                    ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
@@ -504,7 +630,7 @@ export default function ExerciseCreate() {
               </div>
             )}
 
-            {/* CPA mode — for all manipulatives */}
+            {/* CPA mode */}
             <div className="mt-4 pt-4 border-t border-gray-100">
               <label className="flex items-start gap-3 cursor-pointer group">
                 <input
@@ -533,7 +659,9 @@ export default function ExerciseCreate() {
           disabled={loading || !selectedManip}
           className="w-full py-4 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl text-lg transition-colors min-h-[44px]"
         >
-          {loading ? 'Création en cours…' : 'Créer l\'exercice'}
+          {loading
+            ? isEditMode ? 'Enregistrement…' : 'Création en cours…'
+            : isEditMode ? 'Enregistrer les modifications' : "Créer l'exercice"}
         </button>
       </form>
     </div>

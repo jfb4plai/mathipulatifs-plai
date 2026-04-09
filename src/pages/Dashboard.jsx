@@ -406,6 +406,13 @@ export default function Dashboard() {
                             {isOpen ? 'Fermer' : '📊 Résultats'}
                           </button>
                         )}
+                        <Link
+                          to={`/exercice/modifier/${ex.id}`}
+                          className="text-sm text-gray-600 hover:text-gray-800 border border-gray-200 hover:border-gray-400 px-3 py-2 rounded-lg transition-colors min-h-[44px] flex items-center"
+                          title="Modifier cet exercice"
+                        >
+                          ✏️ Modifier
+                        </Link>
                         <a
                           href={`/exercice/${ex.token}`}
                           target="_blank"

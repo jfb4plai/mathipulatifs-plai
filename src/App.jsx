@@ -69,6 +69,14 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/exercice/modifier/:id"
+              element={
+                <ProtectedRoute>
+                  <ExerciseCreate />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/exercice/:token" element={<StudentView />} />
             <Route path="/guide" element={<Guide />} />
             <Route path="/galerie" element={<Gallery />} />
