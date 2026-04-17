@@ -419,6 +419,70 @@ export default function ExerciseCreate() {
                 rows={3}
                 className={`${inputClass} resize-none`}
               />
+              {/* Avertissement cohérence consigne / nombre cible */}
+              {(() => {
+                const targetMap = {
+                  base10: b10Target !== '' ? parseInt(b10Target) : null,
+                  cuisenaire: cuiTarget !== '' ? parseInt(cuiTarget) : null,
+                  cadres10: tenTarget !== '' ? parseInt(tenTarget) : null,
+                }
+                const targetNum = selectedManip ? targetMap[selectedManip] : null
+                if (!targetNum || !consigne.trim()) return null
+                const numbersInConsigne = (consigne.match(/\d+/g) || []).map(Number)
+                if (numbersInConsigne.length === 0) return null
+                const matches = numbersInConsigne.includes(targetNum)
+                if (matches) return null
+                return (
+                  <div className="mt-2 flex items-start gap-2 bg-orange-50 border border-orange-300 rounded-lg px-3 py-2">
+                    <span className="text-orange-500 text-lg leading-none mt-0.5">⚠️</span>
+                    <div className="flex-1 text-xs text-orange-700">
+                      <span className="font-semibold">Incohérence détectée :</span> votre consigne mentionne{' '}
+                      <strong>{numbersInConsigne.join(', ')}</strong> mais le nombre cible configuré est{' '}
+                      <strong>{targetNum}</strong>.{' '}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const templates = {
+                            base10: `Utilise les blocs pour représenter le nombre ${targetNum}.`,
+                            cuisenaire: `Compose le nombre ${targetNum} avec les réglettes Cuisenaire.`,
+                            cadres10: `Représente le nombre ${targetNum} dans le cadre.`,
+                          }
+                          setConsigne(templates[selectedManip] || `Travaille avec le nombre ${targetNum}.`)
+                        }}
+                        className="underline font-semibold hover:text-orange-900 transition-colors"
+                      >
+                        Corriger la consigne automatiquement →
+                      </button>
+                    </div>
+                  </div>
+                )
+              })()}
+              {/* Suggestion de consigne si targetNumber défini mais consigne vide */}
+              {(() => {
+                const targetMap = {
+                  base10: b10Target !== '' ? parseInt(b10Target) : null,
+                  cuisenaire: cuiTarget !== '' ? parseInt(cuiTarget) : null,
+                  cadres10: tenTarget !== '' ? parseInt(tenTarget) : null,
+                }
+                const targetNum = selectedManip ? targetMap[selectedManip] : null
+                if (!targetNum || consigne.trim()) return null
+                const templates = {
+                  base10: `Utilise les blocs pour représenter le nombre ${targetNum}.`,
+                  cuisenaire: `Compose le nombre ${targetNum} avec les réglettes Cuisenaire.`,
+                  cadres10: `Représente le nombre ${targetNum} dans le cadre.`,
+                }
+                const suggestion = templates[selectedManip]
+                if (!suggestion) return null
+                return (
+                  <button
+                    type="button"
+                    onClick={() => setConsigne(suggestion)}
+                    className="mt-2 text-xs text-blue-600 hover:text-blue-800 underline transition-colors"
+                  >
+                    💡 Suggérer : "{suggestion}"
+                  </button>
+                )
+              })()}
             </div>
           </div>
         </div>
