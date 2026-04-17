@@ -58,6 +58,8 @@ export default function ExerciseCreate() {
   // Base10 config
   const [b10Target, setB10Target] = useState('')
   const [b10Max, setB10Max] = useState(999)
+  const [b10MultipleAttempts, setB10MultipleAttempts] = useState(true)
+  const [b10ShowSolutionAfter, setB10ShowSolutionAfter] = useState(3)
 
   // Droite numérique config
   const [dnMin, setDnMin] = useState(0)
@@ -163,6 +165,8 @@ export default function ExerciseCreate() {
         targetNumber: b10Target !== '' ? parseInt(b10Target) : undefined,
         maxNumber: parseInt(b10Max),
         showCounter: true,
+        allowMultipleAttempts: b10MultipleAttempts,
+        showSolutionAfterAttempts: b10MultipleAttempts ? b10ShowSolutionAfter : 1,
         cpaMode,
       }
     }
@@ -477,6 +481,43 @@ export default function ExerciseCreate() {
                     max={999}
                     className={inputClass}
                   />
+                </div>
+                <div className="space-y-3 pt-2 border-t border-gray-100">
+                  <label className="flex items-start gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={b10MultipleAttempts}
+                      onChange={(e) => setB10MultipleAttempts(e.target.checked)}
+                      className="mt-1 w-5 h-5 accent-blue-500 cursor-pointer"
+                    />
+                    <div>
+                      <div className="font-semibold text-gray-700 text-sm group-hover:text-blue-600 transition-colors">
+                        Autoriser plusieurs tentatives
+                      </div>
+                      {!focusMode && (
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          L'élève reçoit un indice guidé et peut corriger sa réponse.
+                        </div>
+                      )}
+                    </div>
+                  </label>
+                  {b10MultipleAttempts && (
+                    <div className="pl-8">
+                      <label className={labelClass}>
+                        Afficher la solution après combien d'erreurs ?
+                      </label>
+                      <select
+                        value={b10ShowSolutionAfter}
+                        onChange={(e) => setB10ShowSolutionAfter(parseInt(e.target.value))}
+                        className={inputClass}
+                      >
+                        <option value={0}>Jamais (l'élève continue jusqu'à réussir)</option>
+                        <option value={2}>Après 2 erreurs</option>
+                        <option value={3}>Après 3 erreurs</option>
+                        <option value={5}>Après 5 erreurs</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
