@@ -246,12 +246,21 @@ export default function ExerciseCreate() {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) throw new Error('Non authentifié')
 
-        const { data: teacherData, error: tErr } = await supabase
+        let { data: teacherData, error: tErr } = await supabase
           .from('teachers')
           .select('id')
           .eq('user_id', user.id)
-          .single()
+          .maybeSingle()
         if (tErr) throw tErr
+        if (!teacherData) {
+          const { data: newTeacher, error: insErr } = await supabase
+            .from('teachers')
+            .insert({ user_id: user.id, nom: user.email })
+            .select('id')
+            .single()
+          if (insErr) throw insErr
+          teacherData = newTeacher
+        }
 
         const { data: exData, error: exErr } = await supabase
           .from('exercises')
