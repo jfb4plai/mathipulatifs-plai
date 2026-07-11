@@ -40,7 +40,7 @@ export default function Gallery() {
     if (!supabase) return
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
-      const { data } = await supabase.from('teachers').select('id').eq('user_id', user.id).single()
+      const { data } = await supabase.from('mathip_teachers').select('id').eq('user_id', user.id).single()
       setTeacher(data)
     }
   }
@@ -48,8 +48,8 @@ export default function Gallery() {
   const loadGallery = async () => {
     if (!supabase) { setLoading(false); return }
     const { data } = await supabase
-      .from('gallery')
-      .select('*, teachers(nom, ecole)')
+      .from('mathip_gallery')
+      .select('*, teachers:mathip_teachers(nom, ecole)')
       .order('created_at', { ascending: false })
     setItems(data || [])
     setLoading(false)
@@ -59,7 +59,7 @@ export default function Gallery() {
     if (!teacher || !supabase) return
     setCopying(item.id)
     try {
-      await supabase.from('exercises').insert({
+      await supabase.from('mathip_exercises').insert({
         teacher_id: teacher.id,
         titre: item.titre,
         consigne: item.consigne,

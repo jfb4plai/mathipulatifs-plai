@@ -103,7 +103,7 @@ export default function ExerciseCreate() {
     const loadExercise = async () => {
       try {
         const { data, error: err } = await supabase
-          .from('exercises')
+          .from('mathip_exercises')
           .select('*')
           .eq('id', editId)
           .single()
@@ -236,7 +236,7 @@ export default function ExerciseCreate() {
         // Mode édition — update uniquement titre/consigne/config
         // Le token et le manipulable restent identiques
         const { error: upErr } = await supabase
-          .from('exercises')
+          .from('mathip_exercises')
           .update({
             titre,
             consigne: consigne || null,
@@ -251,14 +251,14 @@ export default function ExerciseCreate() {
         if (!user) throw new Error('Non authentifié')
 
         let { data: teacherData, error: tErr } = await supabase
-          .from('teachers')
+          .from('mathip_teachers')
           .select('id')
           .eq('user_id', user.id)
           .maybeSingle()
         if (tErr) throw tErr
         if (!teacherData) {
           const { data: newTeacher, error: insErr } = await supabase
-            .from('teachers')
+            .from('mathip_teachers')
             .insert({ user_id: user.id, nom: user.email })
             .select('id')
             .single()
@@ -267,7 +267,7 @@ export default function ExerciseCreate() {
         }
 
         const { data: exData, error: exErr } = await supabase
-          .from('exercises')
+          .from('mathip_exercises')
           .insert({
             teacher_id: teacherData.id,
             titre,

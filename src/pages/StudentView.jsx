@@ -111,7 +111,7 @@ export default function StudentView() {
     }
 
     supabase
-      .from('exercises')
+      .from('mathip_exercises')
       .select('*')
       .eq('token', token)
       .eq('publie', true)
@@ -128,7 +128,7 @@ export default function StudentView() {
 
   const saveSession = async (result, duree) => {
     if (!isDemo && supabase && exercise?.id) {
-      await supabase.from('sessions').insert({
+      await supabase.from('mathip_sessions').insert({
         exercise_id: exercise.id,
         prenom_eleve: prenom || null,
         reponse: result,

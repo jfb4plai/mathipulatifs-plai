@@ -34,3 +34,7 @@ lerna-debug.log*
 
 # Vite
 *.local
+.vercel
+
+# Supabase
+supabase/.temp

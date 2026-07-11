@@ -145,7 +145,7 @@ export default function Dashboard() {
       if (!user) { navigate('/connexion'); return }
 
       const { data: teacherData } = await supabase
-        .from('teachers')
+        .from('mathip_teachers')
         .select('*')
         .eq('user_id', user.id)
         .single()
@@ -154,7 +154,7 @@ export default function Dashboard() {
 
       if (teacherData) {
         const { data: exData } = await supabase
-          .from('exercises')
+          .from('mathip_exercises')
           .select('*')
           .eq('teacher_id', teacherData.id)
           .order('created_at', { ascending: false })
@@ -163,7 +163,7 @@ export default function Dashboard() {
 
         if (exData && exData.length > 0) {
           const { data: sessData } = await supabase
-            .from('sessions')
+            .from('mathip_sessions')
             .select('exercise_id')
             .in('exercise_id', exData.map((e) => e.id))
 
@@ -174,7 +174,7 @@ export default function Dashboard() {
           setSessionCounts(counts)
 
           const { data: galleryData } = await supabase
-            .from('gallery')
+            .from('mathip_gallery')
             .select('exercise_id')
             .eq('teacher_id', teacherData.id)
           setSharedIds(new Set((galleryData || []).map((g) => g.exercise_id)))
@@ -198,7 +198,7 @@ export default function Dashboard() {
     setLoadingSessions(true)
     try {
       const { data } = await supabase
-        .from('sessions')
+        .from('mathip_sessions')
         .select('*')
         .eq('exercise_id', exId)
         .order('created_at', { ascending: false })
@@ -217,7 +217,7 @@ export default function Dashboard() {
 
   const handleDelete = async (id) => {
     if (!confirm('Supprimer cet exercice ? Cette action est irréversible.')) return
-    await supabase.from('exercises').delete().eq('id', id)
+    await supabase.from('mathip_exercises').delete().eq('id', id)
     setExercises((prev) => prev.filter((e) => e.id !== id))
     if (resultsPanel === id) setResultsPanel(null)
   }
@@ -244,7 +244,7 @@ export default function Dashboard() {
     if (!teacher || !supabase) return
     setSharing(true)
     try {
-      await supabase.from('gallery').insert({
+      await supabase.from('mathip_gallery').insert({
         teacher_id: teacher.id,
         exercise_id: ex.id,
         titre: ex.titre,
@@ -266,7 +266,7 @@ export default function Dashboard() {
   const handleUnshare = async (ex) => {
     if (!teacher || !supabase) return
     if (!confirm("Retirer cet exercice de la galerie FWB ?")) return
-    await supabase.from('gallery').delete().eq('exercise_id', ex.id).eq('teacher_id', teacher.id)
+    await supabase.from('mathip_gallery').delete().eq('exercise_id', ex.id).eq('teacher_id', teacher.id)
     setSharedIds((prev) => { const s = new Set(prev); s.delete(ex.id); return s })
   }
 

@@ -52,7 +52,7 @@ export default function Auth() {
         if (authError) throw authError
 
         if (data.user) {
-          const { error: dbError } = await supabase.from('teachers').insert({
+          const { error: dbError } = await supabase.from('mathip_teachers').insert({
             user_id: data.user.id,
             nom,
             ecole: ecole || null,
