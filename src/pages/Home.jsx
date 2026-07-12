@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAccessibility } from '../contexts/AccessibilityContext.jsx'
-import logoPlai from '../assets/logo-plai.png'
+import logoPlai from '../assets/plai-logo.jpg'
 
 const manipulatives = [
   {
@@ -96,19 +96,19 @@ export default function Home() {
   return (
     <div className={`${fontClass} ${textClass} min-h-screen`}>
       {/* Hero Header */}
-      <header className="bg-gradient-to-br from-blue-600 to-blue-800 text-white py-16 px-4">
+      <header className="bg-gradient-to-br from-plai-teal to-plai-teal-dark text-white py-16 px-4">
         <div className="max-w-4xl mx-auto text-center">
           <img
             src={logoPlai}
             alt="Logo PLAI — Pôle Liégeois d'Accompagnement vers une École Inclusive"
-            className="h-20 mx-auto mb-4 drop-shadow-md"
+            className="h-16 mx-auto mb-6 bg-white rounded-xl px-4 py-2 drop-shadow-md"
           />
-          <h1 className="text-4xl font-bold mb-3">Mathipulatifs PLAI</h1>
-          <p className={`text-blue-100 max-w-2xl mx-auto ${largeText ? 'text-2xl' : 'text-xl'}`}>
+          <h1 className="font-display text-4xl mb-3">Mathipulatifs PLAI</h1>
+          <p className={`text-teal-50 max-w-2xl mx-auto ${largeText ? 'text-2xl' : 'text-xl'}`}>
             Manipulables mathématiques interactifs pour la classe inclusive
           </p>
           {!focusMode && (
-            <p className="text-blue-200 mt-2 text-sm">
+            <p className="text-teal-100 mt-2 text-sm">
               Conçu pour les enseignant·e·s de la Fédération Wallonie-Bruxelles
             </p>
           )}
@@ -117,7 +117,7 @@ export default function Home() {
 
       {/* Manipulatives cards */}
       <section className="max-w-5xl mx-auto px-4 py-12">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2 text-center">
+        <h2 className="font-display text-2xl text-gray-800 mb-2 text-center">
           Choisissez un manipulable
         </h2>
         {!focusMode && (
@@ -156,9 +156,9 @@ export default function Home() {
 
       {/* Teacher CTA */}
       <section className={`py-12 px-4 ${focusMode ? '' : 'bg-gray-50'}`}>
-        <div className="max-w-2xl mx-auto text-center bg-white rounded-2xl border border-blue-200 p-8 shadow-sm">
+        <div className="max-w-2xl mx-auto text-center bg-white rounded-2xl border border-plai-teal/20 p-8 shadow-sm">
           <div className="text-3xl mb-3" aria-hidden="true">👩‍🏫</div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">
+          <h2 className="font-display text-xl text-gray-800 mb-2">
             Vous êtes enseignant·e ?
           </h2>
           {!focusMode && (
@@ -168,7 +168,7 @@ export default function Home() {
           )}
           <Link
             to="/connexion"
-            className="inline-block bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-xl transition-colors min-h-[44px]"
+            className="inline-block bg-plai-teal hover:bg-plai-teal-dark text-white font-bold py-3 px-8 rounded-xl transition-colors min-h-[44px]"
           >
             Accéder à l'espace enseignant
           </Link>
@@ -188,11 +188,11 @@ export default function Home() {
             Ancrage scientifique : Jolivel (2023, corpus RISS) · Najjar (2015, corpus RISS)
           </p>
           <div className="flex items-center justify-center gap-4 flex-wrap">
-            <Link to="/guide" className="text-blue-500 hover:underline font-medium">
+            <Link to="/guide" className="text-plai-teal hover:underline font-medium">
               📖 Mode d'emploi &amp; références scientifiques
             </Link>
             <span className="text-gray-200">|</span>
-            <Link to="/galerie" className="text-indigo-500 hover:underline font-medium">
+            <Link to="/galerie" className="text-plai-orange hover:underline font-medium">
               🏫 Galerie FWB — exercices partagés
             </Link>
           </div>

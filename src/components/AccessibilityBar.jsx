@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAccessibility, PROFILES } from '../contexts/AccessibilityContext.jsx'
-import logoPlai from '../assets/logo-plai.png'
+import logoPlai from '../assets/plai-logo.jpg'
 
 const TEACHER_ROUTES = ['/connexion', '/tableau-de-bord']
 const isTeacherRoute = (pathname) =>
@@ -37,10 +37,9 @@ export default function AccessibilityBar() {
 
   return (
     <>
-      <div className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-100 h-12 flex items-center px-4 gap-2">
+      <div className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm shadow-sm border-b border-gray-100 h-12 flex items-center px-4 gap-2">
         <Link to="/" className="flex items-center gap-2 mr-3 shrink-0" title="Retour à l'accueil">
-          <img src={logoPlai} alt="Logo PLAI" className="h-7 w-auto" />
-          <span className="hidden md:inline text-sm font-bold text-gray-700">Mathipulatifs PLAI</span>
+          <img src={logoPlai} alt="Logo PLAI — Pôle Liégeois d'Accompagnement vers une École Inclusive" className="h-6 w-auto" />
         </Link>
         <span className="text-xs text-gray-400 mr-2 hidden sm:block">Accessibilité :</span>
 
@@ -89,7 +88,7 @@ export default function AccessibilityBar() {
           {showTeacherLink && (
             <Link
               to="/connexion"
-              className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold bg-blue-500 hover:bg-blue-600 text-white transition-colors min-h-[36px]"
+              className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold bg-plai-teal hover:bg-plai-teal-dark text-white transition-colors min-h-[36px]"
             >
               <span aria-hidden="true">👩‍🏫</span>
               <span className="hidden sm:inline">Espace enseignant</span>
