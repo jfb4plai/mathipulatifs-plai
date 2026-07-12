@@ -5,5 +5,7 @@
 @layer base {
   body {
     @apply bg-gray-50 text-gray-900;
+    /* Seuil accessibilité PLAI : jamais moins de 16px, même après import plai-style.css (15px) */
+    font-size: 16px;
   }
 }
