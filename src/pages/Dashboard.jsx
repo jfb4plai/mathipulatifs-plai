@@ -10,6 +10,8 @@ const manipulativeLabels = {
   cuisenaire: { label: 'Réglettes Cuisenaire', color: 'bg-orange-100 text-orange-700' },
   cadres10:   { label: 'Cadres à 10',          color: 'bg-red-100 text-red-700' },
   grille100:  { label: 'Grille des 100',        color: 'bg-teal-100 text-teal-700' },
+  horloge:  { label: 'Horloge', color: 'bg-amber-100 text-amber-700' },
+  monnaie:  { label: 'Monnaie', color: 'bg-cyan-100 text-cyan-700' },
 }
 
 function ResultsChart({ sessions }) {

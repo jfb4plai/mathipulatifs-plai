@@ -51,6 +51,22 @@ const manipulatives = [
     couleur: 'teal',
     demoToken: 'demo-grille100',
   },
+  {
+    id: 'horloge',
+    emoji: '🕐',
+    titre: 'Horloge',
+    description: "Lire l'heure et placer les aiguilles. Manipule un cadran pour comprendre les heures, demi-heures et quarts d'heure.",
+    couleur: 'amber',
+    demoToken: 'demo-horloge',
+  },
+  {
+    id: 'monnaie',
+    emoji: '💶',
+    titre: 'Monnaie',
+    description: 'Compose une somme ou rends la monnaie avec des pièces et billets euros.',
+    couleur: 'cyan',
+    demoToken: 'demo-monnaie',
+  },
 ]
 
 const colorMap = {
@@ -83,6 +99,16 @@ const colorMap = {
     card: 'border-teal-200 hover:border-teal-400',
     badge: 'bg-teal-100 text-teal-700',
     btn: 'bg-teal-500 hover:bg-teal-600 text-white',
+  },
+  amber: {
+    card: 'border-amber-200 hover:border-amber-400',
+    badge: 'bg-amber-100 text-amber-700',
+    btn: 'bg-amber-500 hover:bg-amber-600 text-white',
+  },
+  cyan: {
+    card: 'border-cyan-200 hover:border-cyan-400',
+    badge: 'bg-cyan-100 text-cyan-700',
+    btn: 'bg-cyan-500 hover:bg-cyan-600 text-white',
   },
 }
 
