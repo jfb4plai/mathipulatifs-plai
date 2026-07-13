@@ -199,28 +199,34 @@ export default function Clock({ config = {}, onValidate }) {
           <circle cx={CENTER} cy={CENTER} r={6} fill="#1A202C" />
           {!isReadMode && !validated && (
             <>
+              {/* Poignée aiguille des heures — pleine et large (44px) pour rester saisissable, distincte de la poignée minutes même quand les deux aiguilles se superposent */}
               <circle
                 cx={hourEnd.x}
                 cy={hourEnd.y}
-                r={14}
-                fill="rgba(26,32,44,0.15)"
+                r={22}
+                fill="#1A202C"
+                stroke="white"
+                strokeWidth={3}
+                style={{ cursor: dragging === 'hour' ? 'grabbing' : 'grab', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}
                 onMouseDown={handleDown('hour')}
                 onTouchStart={handleDown('hour')}
-                style={{ cursor: 'grab' }}
                 role="slider"
                 aria-label="Aiguille des heures"
                 aria-valuenow={hours}
                 aria-valuemin={1}
                 aria-valuemax={12}
               />
+              {/* Poignée aiguille des minutes — au-dessus dans le DOM donc cliquable en priorité si les deux zones se recouvrent */}
               <circle
                 cx={minuteEnd.x}
                 cy={minuteEnd.y}
-                r={14}
-                fill="rgba(49,130,206,0.15)"
+                r={22}
+                fill="#3182CE"
+                stroke="white"
+                strokeWidth={3}
+                style={{ cursor: dragging === 'minute' ? 'grabbing' : 'grab', filter: 'drop-shadow(0 2px 4px rgba(49,130,206,0.4))' }}
                 onMouseDown={handleDown('minute')}
                 onTouchStart={handleDown('minute')}
-                style={{ cursor: 'grab' }}
                 role="slider"
                 aria-label="Aiguille des minutes"
                 aria-valuenow={minutes}
@@ -268,7 +274,9 @@ export default function Clock({ config = {}, onValidate }) {
 
       {!focusMode && !validated && (
         <p className="text-center text-xs text-gray-400 mb-4">
-          {isReadMode ? 'Saisis les heures et les minutes lues sur le cadran' : "Glisse les aiguilles pour régler l'heure"}
+          {isReadMode
+            ? 'Saisis les heures et les minutes lues sur le cadran'
+            : 'Glisse la grande aiguille bleue (minutes) — la petite aiguille noire (heures) avance avec elle, comme sur une vraie horloge.'}
         </p>
       )}
 
