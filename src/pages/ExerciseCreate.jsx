@@ -256,7 +256,7 @@ export default function ExerciseCreate() {
       return {
         mode: clkMode,
         granularity: parseInt(clkGranularity),
-        targetTime: clkMode === 'placer' ? { h: parseInt(clkTargetH), m: parseInt(clkTargetM) } : undefined,
+        targetTime: clkMode === 'placer' ? { h: parseInt(clkTargetH) || 3, m: parseInt(clkTargetM) || 0 } : undefined,
         cpaMode,
       }
     }
