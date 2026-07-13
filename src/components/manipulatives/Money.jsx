@@ -2,25 +2,27 @@ import { useState, useMemo } from 'react'
 import { useAccessibility } from '../../contexts/AccessibilityContext.jsx'
 
 const DENOMS = [
-  { value: 1, label: '1 c', type: 'piece', color: '#B87333' },
-  { value: 2, label: '2 c', type: 'piece', color: '#B87333' },
-  { value: 5, label: '5 c', type: 'piece', color: '#B87333' },
-  { value: 10, label: '10 c', type: 'piece', color: '#D4A24C' },
-  { value: 20, label: '20 c', type: 'piece', color: '#D4A24C' },
-  { value: 50, label: '50 c', type: 'piece', color: '#D4A24C' },
-  { value: 100, label: '1 €', type: 'piece', color: '#C9B037' },
-  { value: 200, label: '2 €', type: 'piece', color: '#C0C0C0' },
-  { value: 500, label: '5 €', type: 'billet', color: '#8C6BAF' },
-  { value: 1000, label: '10 €', type: 'billet', color: '#C0392B' },
-  { value: 2000, label: '20 €', type: 'billet', color: '#2980B9' },
-  { value: 5000, label: '50 €', type: 'billet', color: '#E67E22' },
+  { value: 1, label: '1 c', type: 'piece', color: '#B87333', textColor: '#1A202C' },
+  { value: 2, label: '2 c', type: 'piece', color: '#B87333', textColor: '#1A202C' },
+  { value: 5, label: '5 c', type: 'piece', color: '#B87333', textColor: '#1A202C' },
+  { value: 10, label: '10 c', type: 'piece', color: '#D4A24C', textColor: '#1A202C' },
+  { value: 20, label: '20 c', type: 'piece', color: '#D4A24C', textColor: '#1A202C' },
+  { value: 50, label: '50 c', type: 'piece', color: '#D4A24C', textColor: '#1A202C' },
+  { value: 100, label: '1 €', type: 'piece', color: '#C9B037', textColor: '#1A202C' },
+  { value: 200, label: '2 €', type: 'piece', color: '#C0C0C0', textColor: '#1A202C' },
+  { value: 500, label: '5 €', type: 'billet', color: '#8C6BAF', textColor: '#FFFFFF' },
+  { value: 1000, label: '10 €', type: 'billet', color: '#C0392B', textColor: '#FFFFFF' },
+  { value: 2000, label: '20 €', type: 'billet', color: '#2980B9', textColor: '#FFFFFF' },
+  { value: 5000, label: '50 €', type: 'billet', color: '#E67E22', textColor: '#1A202C' },
 ]
 
 function formatCents(c) {
-  const euros = Math.floor(c / 100)
-  const cents = c % 100
-  if (cents === 0) return `${euros} €`
-  return `${euros},${String(cents).padStart(2, '0')} €`
+  const sign = c < 0 ? '-' : ''
+  const abs = Math.abs(c)
+  const euros = Math.floor(abs / 100)
+  const cents = abs % 100
+  if (cents === 0) return `${sign}${euros} €`
+  return `${sign}${euros},${String(cents).padStart(2, '0')} €`
 }
 
 function CoinShape({ denom, size = 48 }) {
@@ -29,14 +31,14 @@ function CoinShape({ denom, size = 48 }) {
       <div
         style={{
           width: size * 1.6,
-          height: size * 0.75,
+          height: Math.max(44, size * 0.75),
           backgroundColor: denom.color,
           border: '2px solid rgba(0,0,0,0.2)',
           borderRadius: 6,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#fff',
+          color: denom.textColor,
           fontWeight: 'bold',
           fontSize: 12,
         }}
@@ -56,7 +58,7 @@ function CoinShape({ denom, size = 48 }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#fff',
+        color: denom.textColor,
         fontWeight: 'bold',
         fontSize: 11,
       }}
@@ -68,7 +70,7 @@ function CoinShape({ denom, size = 48 }) {
 
 export default function Money({ config = {}, onValidate }) {
   const { mode = 'composer', targetAmount, price, paid, maxDenomination = 500 } = config
-  const { focusMode, ttsEnabled, speak } = useAccessibility()
+  const { dyslexicFont, largeText, focusMode, ttsEnabled, speak } = useAccessibility()
 
   const availableDenoms = useMemo(() => DENOMS.filter((d) => d.value <= maxDenomination), [maxDenomination])
 
@@ -107,8 +109,11 @@ export default function Money({ config = {}, onValidate }) {
 
   const isCorrect = target !== undefined && target !== null ? total === target : null
 
+  const fontClass = dyslexicFont ? 'font-dyslexic' : ''
+  const textClass = largeText ? 'text-xl' : 'text-base'
+
   return (
-    <div>
+    <div className={`${fontClass} ${textClass} select-none`}>
       {mode === 'rendu' && (
         <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl text-center">
           <p className="text-blue-800 font-semibold">
