@@ -10,6 +10,8 @@ const MANIP_LABELS = {
   cuisenaire:        { label: 'Réglettes Cuisenaire',color: 'bg-orange-100 text-orange-700' },
   cadres10:          { label: 'Cadres à 10',         color: 'bg-red-100 text-red-700' },
   grille100:         { label: 'Grille des 100',      color: 'bg-teal-100 text-teal-700' },
+  horloge:           { label: 'Horloge',             color: 'bg-amber-100 text-amber-700' },
+  monnaie:           { label: 'Monnaie',             color: 'bg-cyan-100 text-cyan-700' },
 }
 
 const NIVEAUX_PRIMAIRE  = ['P1','P2','P3','P4','P5','P6']

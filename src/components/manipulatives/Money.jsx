@@ -2,18 +2,18 @@ import { useState, useMemo } from 'react'
 import { useAccessibility } from '../../contexts/AccessibilityContext.jsx'
 
 const DENOMS = [
-  { value: 1, label: '1 c', type: 'piece', color: '#B87333', textColor: '#1A202C' },
-  { value: 2, label: '2 c', type: 'piece', color: '#B87333', textColor: '#1A202C' },
-  { value: 5, label: '5 c', type: 'piece', color: '#B87333', textColor: '#1A202C' },
-  { value: 10, label: '10 c', type: 'piece', color: '#D4A24C', textColor: '#1A202C' },
-  { value: 20, label: '20 c', type: 'piece', color: '#D4A24C', textColor: '#1A202C' },
-  { value: 50, label: '50 c', type: 'piece', color: '#D4A24C', textColor: '#1A202C' },
-  { value: 100, label: '1 €', type: 'piece', color: '#C9B037', textColor: '#1A202C' },
-  { value: 200, label: '2 €', type: 'piece', color: '#C0C0C0', textColor: '#1A202C' },
-  { value: 500, label: '5 €', type: 'billet', color: '#8C6BAF', textColor: '#FFFFFF' },
-  { value: 1000, label: '10 €', type: 'billet', color: '#C0392B', textColor: '#FFFFFF' },
-  { value: 2000, label: '20 €', type: 'billet', color: '#2980B9', textColor: '#FFFFFF' },
-  { value: 5000, label: '50 €', type: 'billet', color: '#E67E22', textColor: '#1A202C' },
+  { value: 1, label: '1 c', spoken: '1 centime', type: 'piece', color: '#B87333', textColor: '#1A202C' },
+  { value: 2, label: '2 c', spoken: '2 centimes', type: 'piece', color: '#B87333', textColor: '#1A202C' },
+  { value: 5, label: '5 c', spoken: '5 centimes', type: 'piece', color: '#B87333', textColor: '#1A202C' },
+  { value: 10, label: '10 c', spoken: '10 centimes', type: 'piece', color: '#D4A24C', textColor: '#1A202C' },
+  { value: 20, label: '20 c', spoken: '20 centimes', type: 'piece', color: '#D4A24C', textColor: '#1A202C' },
+  { value: 50, label: '50 c', spoken: '50 centimes', type: 'piece', color: '#D4A24C', textColor: '#1A202C' },
+  { value: 100, label: '1 €', spoken: '1 euro', type: 'piece', color: '#C9B037', textColor: '#1A202C' },
+  { value: 200, label: '2 €', spoken: '2 euros', type: 'piece', color: '#C0C0C0', textColor: '#1A202C' },
+  { value: 500, label: '5 €', spoken: '5 euros', type: 'billet', color: '#8C6BAF', textColor: '#FFFFFF' },
+  { value: 1000, label: '10 €', spoken: '10 euros', type: 'billet', color: '#C0392B', textColor: '#FFFFFF' },
+  { value: 2000, label: '20 €', spoken: '20 euros', type: 'billet', color: '#2980B9', textColor: '#FFFFFF' },
+  { value: 5000, label: '50 €', spoken: '50 euros', type: 'billet', color: '#E67E22', textColor: '#1A202C' },
 ]
 
 function formatCents(c) {
@@ -141,6 +141,7 @@ export default function Money({ config = {}, onValidate }) {
                 onClick={() => addCoin(d.value)}
                 disabled={validated}
                 title={`Ajouter ${d.label}`}
+                aria-label={`Ajouter ${d.type === 'billet' ? 'un billet de' : 'une pièce de'} ${d.spoken}`}
                 className="disabled:opacity-50 hover:scale-105 transition-transform"
                 style={{ cursor: validated ? 'default' : 'pointer' }}
               >
@@ -173,6 +174,7 @@ export default function Money({ config = {}, onValidate }) {
                   onClick={() => removeCoin(index)}
                   disabled={validated}
                   title={`Retirer ${d.label}`}
+                  aria-label={`Retirer ${d.type === 'billet' ? 'le billet de' : 'la pièce de'} ${d.spoken}`}
                   style={{ background: 'none', border: 'none', padding: 0, cursor: validated ? 'default' : 'pointer' }}
                 >
                   <CoinShape denom={d} />
