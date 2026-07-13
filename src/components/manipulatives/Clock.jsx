@@ -189,7 +189,7 @@ export default function Clock({ config = {}, onValidate }) {
             const a = (i / 12) * 360
             const p = handEnd(a, RADIUS - 30)
             return (
-              <text key={i} x={p.x} y={p.y + 5} textAnchor="middle" fontSize={14} fontWeight="bold" fill="#2D3748">
+              <text key={i} x={p.x} y={p.y + 5} textAnchor="middle" fontSize={largeText ? 16 : 14} fontWeight="bold" fill="#2D3748">
                 {i === 0 ? 12 : i}
               </text>
             )
@@ -207,6 +207,11 @@ export default function Clock({ config = {}, onValidate }) {
                 onMouseDown={handleDown('hour')}
                 onTouchStart={handleDown('hour')}
                 style={{ cursor: 'grab' }}
+                role="slider"
+                aria-label="Aiguille des heures"
+                aria-valuenow={hours}
+                aria-valuemin={1}
+                aria-valuemax={12}
               />
               <circle
                 cx={minuteEnd.x}
@@ -216,6 +221,11 @@ export default function Clock({ config = {}, onValidate }) {
                 onMouseDown={handleDown('minute')}
                 onTouchStart={handleDown('minute')}
                 style={{ cursor: 'grab' }}
+                role="slider"
+                aria-label="Aiguille des minutes"
+                aria-valuenow={minutes}
+                aria-valuemin={0}
+                aria-valuemax={59}
               />
             </>
           )}
