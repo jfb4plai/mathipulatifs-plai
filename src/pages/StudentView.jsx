@@ -8,6 +8,8 @@ import FractionBars from '../components/manipulatives/FractionBars.jsx'
 import CuisenaireRods from '../components/manipulatives/CuisenaireRods.jsx'
 import TenFrames from '../components/manipulatives/TenFrames.jsx'
 import HundredChart from '../components/manipulatives/HundredChart.jsx'
+import Clock from '../components/manipulatives/Clock.jsx'
+import Money from '../components/manipulatives/Money.jsx'
 
 // Demo configs for tokens starting with "demo-"
 const DEMO_CONFIGS = {
@@ -47,6 +49,18 @@ const DEMO_CONFIGS = {
     manipulative: 'grille100',
     config: { startAt: 1, mode: 'multiples', multipleOf: 5 },
   },
+  'demo-horloge': {
+    titre: 'Exploration — Horloge',
+    consigne: "Place les aiguilles sur l'heure demandée.",
+    manipulative: 'horloge',
+    config: { mode: 'placer', granularity: 30, targetTime: { h: 2, m: 30 } },
+  },
+  'demo-monnaie': {
+    titre: 'Exploration — Monnaie',
+    consigne: 'Compose la somme de 3,50 € avec les pièces et billets.',
+    manipulative: 'monnaie',
+    config: { mode: 'composer', targetAmount: 350, maxDenomination: 500 },
+  },
 }
 
 const ENCOURAGEMENTS = [
@@ -64,6 +78,8 @@ function ManipulativeComponent({ manipulative, config, onValidate }) {
   if (manipulative === 'cuisenaire') return <CuisenaireRods config={config} onValidate={onValidate} />
   if (manipulative === 'cadres10') return <TenFrames config={config} onValidate={onValidate} />
   if (manipulative === 'grille100') return <HundredChart config={config} onValidate={onValidate} />
+  if (manipulative === 'horloge') return <Clock config={config} onValidate={onValidate} />
+  if (manipulative === 'monnaie') return <Money config={config} onValidate={onValidate} />
   return <div className="text-gray-500">Manipulable inconnu : {manipulative}</div>
 }
 

@@ -73,6 +73,36 @@ const RISS_REFS = [
     content:
       "L'approche CPA (Concret–Pictural–Abstrait), héritée des travaux de Bruner, propose un travail ancré dans le concret, puis la représentation en images, avant le passage à l'abstraction. Les données probantes confirment son efficacité pour l'enseignement différencié des mathématiques.",
   },
+  {
+    id: 'gangloffgrateau2019',
+    citation: "Gangloff-Grateau, L. (2019). Le temps : des origines à sa structuration en classe. DUMAS.",
+    riss: 'dumas-04649697',
+    content:
+      "L'apprentissage de la lecture de l'heure sur un cadran à aiguilles gagne à être explicite et progressif — heure pleine, puis demi-heure, puis quart d'heure — la notion de « moins le quart » restant la plus difficile à construire. La manipulation régulière des aiguilles, individuelle puis collective, réduit les confusions entre petite et grande aiguille.",
+  },
+  {
+    id: 'bertrand2018',
+    citation:
+      "Bertrand, A. (2018). Les outils de structuration temporelle au service des apprentissages chez les élèves avec troubles des fonctions cognitives. DUMAS.",
+    riss: 'dumas-02000366',
+    content:
+      "Chez les élèves porteurs de troubles des fonctions cognitives, le temps vécu comme durée est la dimension la plus difficile à se représenter car elle n'est pas matérialisée dans leur esprit. Symboliser ce temps par un outil concret comme l'horloge réduit l'anxiété et soutient l'autonomie dans les apprentissages.",
+  },
+  {
+    id: 'fix2016',
+    citation: "Fix, C. (2016). La différenciation pédagogique au service de la réussite des élèves. DUMAS.",
+    riss: 'dumas-01380192',
+    content:
+      "Comparé à un enseignement magistral sur polycopié, l'usage d'un matériel de manipulation — de la fausse monnaie — pour travailler l'euro et le centime motive davantage les élèves, y compris ceux en grande difficulté scolaire.",
+  },
+  {
+    id: 'davidblandin2021',
+    citation:
+      "David-Blandin, V. (2021). Étude comparative des interactions didactiques lors d'un enseignement-apprentissage du nombre avec des élèves à besoins éducatifs particuliers. DUMAS.",
+    riss: 'dumas-03282600',
+    content:
+      "Chez les élèves à besoins éducatifs particuliers, la monnaie est souvent réduite à une activité usuelle de comptage plutôt que traitée comme un objet mathématique structuré pour construire le nombre — un usage pédagogique explicite et manipulable de la monnaie peut combler cet écart.",
+  },
 ]
 
 const HOWTO = [
@@ -193,6 +223,22 @@ const MANIPULATIVES = [
     desc: "Grille 10×10, nombres 1 à 100 (ou 0 à 99). L'élève colorie librement ou cherche les multiples d'un nombre. 4 couleurs disponibles. Mode guidé avec révélation des multiples.",
     cpa: "Concret : grille physique colorée → Semi-concret : grille numérique → Abstrait : table de multiplication ou suite additive",
   },
+  {
+    emoji: '🕐',
+    name: 'Horloge',
+    levels: 'P2–P4 · S1 en difficulté',
+    skills: "Lecture de l'heure, structuration du temps, heures/demi-heures/quarts d'heure",
+    desc: "Un cadran à aiguilles heures et minutes à manipuler. Trois modes : libre (exploration), placer une heure cible, ou lire l'heure affichée et la saisir.",
+    cpa: "Concret : déplacement des aiguilles → Semi-concret : cadran affiché → Abstrait : écriture chiffrée de l'heure",
+  },
+  {
+    emoji: '💶',
+    name: 'Monnaie',
+    levels: 'P2–P5 · S1–S2 en difficulté',
+    skills: 'Monnaie, euro et centime, addition, rendu de monnaie',
+    desc: 'Une banque de pièces et billets euros à cliquer pour composer une somme cible ou rendre la monnaie sur un achat. Dénominations disponibles configurables selon le niveau.',
+    cpa: 'Concret : manipulation des pièces/billets → Semi-concret : représentation des pièces à l\'écran → Abstrait : calcul de la somme en euros',
+  },
 ]
 
 export default function Guide() {
@@ -214,7 +260,7 @@ export default function Guide() {
 
       {/* Les 3 manipulables */}
       <section className="mb-10">
-        <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Les 6 manipulables</h2>
+        <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Les 8 manipulables</h2>
         <div className="space-y-4">
           {MANIPULATIVES.map((m) => (
             <div key={m.name} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">

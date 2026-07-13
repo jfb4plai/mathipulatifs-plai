@@ -40,6 +40,18 @@ const manipulatives = [
     titre: 'Grille des 100',
     description: 'Colorier des nombres, repérer multiples et régularités',
   },
+  {
+    id: 'horloge',
+    emoji: '🕐',
+    titre: 'Horloge',
+    description: "Lire l'heure, placer les aiguilles sur un cadran",
+  },
+  {
+    id: 'monnaie',
+    emoji: '💶',
+    titre: 'Monnaie',
+    description: 'Composer une somme ou rendre la monnaie avec des pièces/billets',
+  },
 ]
 
 const FRACTION_DENOMINATORS = [2, 3, 4, 5, 6, 8, 10, 12]
@@ -84,6 +96,19 @@ export default function ExerciseCreate() {
   const [chartMode, setChartMode] = useState('libre')
   const [chartMultiple, setChartMultiple] = useState(2)
   const [chartStart, setChartStart] = useState(1)
+
+  // Horloge config
+  const [clkMode, setClkMode] = useState('libre')
+  const [clkGranularity, setClkGranularity] = useState(30)
+  const [clkTargetH, setClkTargetH] = useState(3)
+  const [clkTargetM, setClkTargetM] = useState(0)
+
+  // Monnaie config
+  const [monMode, setMonMode] = useState('composer')
+  const [monTarget, setMonTarget] = useState('')
+  const [monPrice, setMonPrice] = useState('')
+  const [monPaid, setMonPaid] = useState('')
+  const [monMaxDenom, setMonMaxDenom] = useState(500)
 
   const [loading, setLoading] = useState(false)
   const [loadingExercise, setLoadingExercise] = useState(isEditMode)
@@ -143,6 +168,21 @@ export default function ExerciseCreate() {
           setChartMode(cfg.mode || 'libre')
           setChartMultiple(cfg.multipleOf || 2)
           setChartStart(cfg.startAt ?? 1)
+        }
+        if (data.manipulative === 'horloge') {
+          setClkMode(cfg.mode || 'libre')
+          setClkGranularity(cfg.granularity || 30)
+          if (cfg.targetTime) {
+            setClkTargetH(cfg.targetTime.h)
+            setClkTargetM(cfg.targetTime.m)
+          }
+        }
+        if (data.manipulative === 'monnaie') {
+          setMonMode(cfg.mode || 'composer')
+          setMonTarget(cfg.targetAmount !== undefined ? String(cfg.targetAmount / 100) : '')
+          setMonPrice(cfg.price !== undefined ? String(cfg.price / 100) : '')
+          setMonPaid(cfg.paid !== undefined ? String(cfg.paid / 100) : '')
+          setMonMaxDenom(cfg.maxDenomination || 500)
         }
       } catch (err) {
         setError("Impossible de charger l'exercice.")
@@ -209,6 +249,24 @@ export default function ExerciseCreate() {
         startAt: parseInt(chartStart),
         mode: chartMode,
         multipleOf: chartMode === 'multiples' ? parseInt(chartMultiple) : undefined,
+        cpaMode,
+      }
+    }
+    if (selectedManip === 'horloge') {
+      return {
+        mode: clkMode,
+        granularity: parseInt(clkGranularity),
+        targetTime: clkMode === 'placer' ? { h: parseInt(clkTargetH) || 3, m: parseInt(clkTargetM) || 0 } : undefined,
+        cpaMode,
+      }
+    }
+    if (selectedManip === 'monnaie') {
+      return {
+        mode: monMode,
+        targetAmount: monMode === 'composer' && monTarget !== '' ? Math.round(parseFloat(monTarget) * 100) : undefined,
+        price: monMode === 'rendu' ? Math.round(parseFloat(monPrice || 0) * 100) : undefined,
+        paid: monMode === 'rendu' ? Math.round(parseFloat(monPaid || 0) * 100) : undefined,
+        maxDenomination: parseInt(monMaxDenom),
         cpaMode,
       }
     }
@@ -741,6 +799,116 @@ export default function ExerciseCreate() {
                     />
                   </div>
                 )}
+              </div>
+            )}
+
+            {selectedManip === 'horloge' && (
+              <div className="space-y-4">
+                <div>
+                  <label className={labelClass}>Mode</label>
+                  <select value={clkMode} onChange={(e) => setClkMode(e.target.value)} className={inputClass}>
+                    <option value="libre">Libre (exploration)</option>
+                    <option value="placer">Placer une heure cible</option>
+                    <option value="lire">Lire l'heure affichée</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Granularité</label>
+                  <select value={clkGranularity} onChange={(e) => setClkGranularity(e.target.value)} className={inputClass}>
+                    <option value={60}>Heure pleine</option>
+                    <option value={30}>Demi-heure</option>
+                    <option value={15}>Quart d'heure</option>
+                    <option value={5}>5 minutes</option>
+                  </select>
+                </div>
+                {clkMode === 'placer' && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelClass}>Heure cible — heures</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={12}
+                        value={clkTargetH}
+                        onChange={(e) => setClkTargetH(e.target.value)}
+                        className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Heure cible — minutes</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={59}
+                        value={clkTargetM}
+                        onChange={(e) => setClkTargetM(e.target.value)}
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {selectedManip === 'monnaie' && (
+              <div className="space-y-4">
+                <div>
+                  <label className={labelClass}>Mode</label>
+                  <select value={monMode} onChange={(e) => setMonMode(e.target.value)} className={inputClass}>
+                    <option value="composer">Composer une somme</option>
+                    <option value="rendu">Rendre la monnaie</option>
+                  </select>
+                </div>
+                {monMode === 'composer' && (
+                  <div>
+                    <label className={labelClass}>Montant cible en € (optionnel)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      value={monTarget}
+                      onChange={(e) => setMonTarget(e.target.value)}
+                      placeholder="Ex : 3.50 (laisser vide pour exploration libre)"
+                      className={inputClass}
+                    />
+                  </div>
+                )}
+                {monMode === 'rendu' && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelClass}>Prix de l'article (€)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        value={monPrice}
+                        onChange={(e) => setMonPrice(e.target.value)}
+                        className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Montant payé (€)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        value={monPaid}
+                        onChange={(e) => setMonPaid(e.target.value)}
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <label className={labelClass}>Dénominations disponibles jusqu'à</label>
+                  <select value={monMaxDenom} onChange={(e) => setMonMaxDenom(e.target.value)} className={inputClass}>
+                    <option value={50}>50 centimes max (P1-P2)</option>
+                    <option value={200}>2 € max (pièces seulement)</option>
+                    <option value={500}>5 € max</option>
+                    <option value={2000}>20 € max</option>
+                    <option value={5000}>50 € max</option>
+                  </select>
+                </div>
               </div>
             )}
 
