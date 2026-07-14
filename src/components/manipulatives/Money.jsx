@@ -16,6 +16,8 @@ const DENOMS = [
   { value: 5000, label: '50 €', spoken: '50 euros', type: 'billet', color: '#E67E22', textColor: '#1A202C' },
 ]
 
+const DENOM_BY_VALUE = Object.fromEntries(DENOMS.map((d) => [d.value, d]))
+
 function formatCents(c) {
   const sign = c < 0 ? '-' : ''
   const abs = Math.abs(c)
@@ -80,20 +82,42 @@ export default function Money({ config = {}, onValidate }) {
   const total = workspace.reduce((sum, v) => sum + v, 0)
   const changeExpected = mode === 'rendu' ? (paid ?? 0) - (price ?? 0) : null
   const target = mode === 'composer' ? targetAmount : changeExpected
+  const hasTarget = target !== undefined && target !== null
+
+  // Regroupe les pièces/billets identiques (« 50 c × 3 ») pour alléger la
+  // charge visuelle de l'espace de travail. Plus grosse valeur en premier,
+  // comme on manipule la vraie monnaie.
+  const grouped = useMemo(() => {
+    const counts = new Map()
+    workspace.forEach((v) => counts.set(v, (counts.get(v) || 0) + 1))
+    return [...counts.entries()]
+      .sort((a, b) => b[0] - a[0])
+      .map(([value, count]) => ({ denom: DENOM_BY_VALUE[value], count }))
+  }, [workspace])
 
   const addCoin = (value) => {
     if (validated) return
     setWorkspace((prev) => [...prev, value])
   }
 
-  const removeCoin = (index) => {
+  // Retire une seule occurrence de cette dénomination (la dernière ajoutée).
+  const removeCoin = (value) => {
     if (validated) return
-    setWorkspace((prev) => prev.filter((_, i) => i !== index))
+    setWorkspace((prev) => {
+      const idx = prev.lastIndexOf(value)
+      if (idx === -1) return prev
+      return prev.filter((_, i) => i !== idx)
+    })
+  }
+
+  const clearWorkspace = () => {
+    if (validated) return
+    setWorkspace([])
   }
 
   const handleValidate = () => {
     setValidated(true)
-    const correct = target !== undefined && target !== null ? total === target : null
+    const correct = hasTarget ? total === target : null
     const result = { total, workspace, correct, target }
     if (onValidate) onValidate(result)
     if (ttsEnabled) {
@@ -107,7 +131,13 @@ export default function Money({ config = {}, onValidate }) {
     }
   }
 
-  const isCorrect = target !== undefined && target !== null ? total === target : null
+  const isCorrect = hasTarget ? total === target : null
+
+  // Feedback temps réel : écart au montant visé (aide à l'estimation pour les
+  // élèves en difficulté, comme voir grossir une pile de vraies pièces).
+  const gap = hasTarget ? target - total : 0
+  const pct = hasTarget && target > 0 ? Math.min(100, Math.round((total / target) * 100)) : 0
+  const liveState = !hasTarget ? null : gap > 0 ? 'under' : gap === 0 ? 'exact' : 'over'
 
   const fontClass = dyslexicFont ? 'font-dyslexic' : ''
   const textClass = largeText ? 'text-xl' : 'text-base'
@@ -115,12 +145,12 @@ export default function Money({ config = {}, onValidate }) {
   return (
     <div className={`${fontClass} ${textClass} select-none`}>
       {mode === 'rendu' && (
-        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl text-center">
-          <p className="text-blue-800 font-semibold">
-            Prix de l'article : <span className="font-bold">{formatCents(price ?? 0)}</span> — Payé :{' '}
-            <span className="font-bold">{formatCents(paid ?? 0)}</span>
+        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+          <p className="text-blue-800 font-semibold text-center">
+            🛒 L'article coûte <span className="font-bold">{formatCents(price ?? 0)}</span>. Le client paie avec{' '}
+            <span className="font-bold">{formatCents(paid ?? 0)}</span>.
           </p>
-          <p className="text-blue-600 text-sm mt-1">Rends la monnaie exacte au client.</p>
+          <p className="text-blue-600 text-sm mt-1 text-center">Compose la monnaie exacte à lui rendre.</p>
         </div>
       )}
       {mode === 'composer' && targetAmount !== undefined && (
@@ -152,13 +182,24 @@ export default function Money({ config = {}, onValidate }) {
         </div>
 
         <div className="flex-1 min-w-[240px]">
-          {!focusMode && (
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-              Espace de travail —{' '}
-              <span className="font-bold text-sm normal-case text-gray-700">Total : {formatCents(total)}</span>
-            </h3>
-          )}
-          {focusMode && <div className="mb-2 font-bold text-gray-700">Total : {formatCents(total)}</div>}
+          <div className="flex items-center justify-between mb-2 gap-2">
+            {!focusMode ? (
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Espace de travail —{' '}
+                <span className="font-bold text-sm normal-case text-gray-700">Total : {formatCents(total)}</span>
+              </h3>
+            ) : (
+              <div className="font-bold text-gray-700">Total : {formatCents(total)}</div>
+            )}
+            {workspace.length > 0 && !validated && (
+              <button
+                onClick={clearWorkspace}
+                className="text-xs text-gray-500 hover:text-red-500 border border-gray-200 hover:border-red-200 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors shrink-0 min-h-[36px]"
+              >
+                Tout effacer
+              </button>
+            )}
+          </div>
 
           <div className="min-h-[160px] bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-3 flex flex-wrap gap-2 content-start">
             {workspace.length === 0 && (
@@ -166,22 +207,63 @@ export default function Money({ config = {}, onValidate }) {
                 Clique sur une pièce ou un billet pour l'ajouter ici
               </p>
             )}
-            {workspace.map((value, index) => {
-              const d = DENOMS.find((x) => x.value === value)
-              return (
-                <button
-                  key={index}
-                  onClick={() => removeCoin(index)}
-                  disabled={validated}
-                  title={`Retirer ${d.label}`}
-                  aria-label={`Retirer ${d.type === 'billet' ? 'le billet de' : 'la pièce de'} ${d.spoken}`}
-                  style={{ background: 'none', border: 'none', padding: 0, cursor: validated ? 'default' : 'pointer' }}
-                >
-                  <CoinShape denom={d} />
-                </button>
-              )
-            })}
+            {grouped.map(({ denom, count }) => (
+              <button
+                key={denom.value}
+                onClick={() => removeCoin(denom.value)}
+                disabled={validated}
+                title={`Retirer ${denom.label}`}
+                aria-label={`Retirer ${denom.type === 'billet' ? 'un billet de' : 'une pièce de'} ${denom.spoken} (${count} en tout)`}
+                style={{ background: 'none', border: 'none', padding: 0, cursor: validated ? 'default' : 'pointer' }}
+              >
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <CoinShape denom={denom} />
+                  {count > 1 && (
+                    <span
+                      className="bg-gray-800 text-white font-bold flex items-center justify-center"
+                      style={{
+                        position: 'absolute',
+                        top: -6,
+                        right: -6,
+                        minWidth: 22,
+                        height: 22,
+                        padding: '0 5px',
+                        borderRadius: 11,
+                        fontSize: 12,
+                        border: '2px solid white',
+                      }}
+                    >
+                      ×{count}
+                    </span>
+                  )}
+                </div>
+              </button>
+            ))}
           </div>
+
+          {/* Feedback temps réel vers la cible */}
+          {hasTarget && !validated && workspace.length > 0 && (
+            <div className="mt-3">
+              <div className="h-2.5 w-full bg-gray-200 rounded-full overflow-hidden" aria-hidden="true">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    liveState === 'exact' ? 'bg-green-500' : liveState === 'over' ? 'bg-orange-400' : 'bg-teal-400'
+                  }`}
+                  style={{ width: `${liveState === 'over' ? 100 : pct}%` }}
+                />
+              </div>
+              <p
+                className={`text-sm font-semibold mt-1.5 text-center ${
+                  liveState === 'exact' ? 'text-green-700' : liveState === 'over' ? 'text-orange-600' : 'text-teal-700'
+                }`}
+                aria-live="polite"
+              >
+                {liveState === 'under' && `Il manque ${formatCents(gap)}`}
+                {liveState === 'exact' && '✓ Tu y es — le compte est exact !'}
+                {liveState === 'over' && `Tu as ${formatCents(-gap)} de trop`}
+              </p>
+            </div>
+          )}
 
           {!validated && (
             <button
