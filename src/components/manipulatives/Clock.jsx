@@ -152,6 +152,7 @@ export default function Clock({ config = {}, onValidate }) {
   const [activePointer, setActivePointer] = useState({ hour: null, minute: null })
   const [validated, setValidated] = useState(false)
   const [feedback, setFeedback] = useState(null) // true | false | 'solution' | null
+  const [precise, setPrecise] = useState(false) // placement déjà exact, sans recalage visible
   const [attempts, setAttempts] = useState(0)
   const [hint, setHint] = useState(null)
   const [readH, setReadH] = useState('')
@@ -208,11 +209,27 @@ export default function Clock({ config = {}, onValidate }) {
       const okH = angDiff(hourAngle, hourAngleOf(target.h, target.m)) <= HOUR_TOL_DEG
       const okM = angDiff(minuteAngle, minuteAngleOf(target.m)) <= MINUTE_TOL_DEG
       if (okH && okM) {
+        // Placement déjà « propre » (à quelques degrés près) : rien à recaler.
+        const wasPrecise =
+          angDiff(hourAngle, hourAngleOf(target.h, target.m)) <= 4 &&
+          angDiff(minuteAngle, minuteAngleOf(target.m)) <= 4
+        // On valide l'effort (tolérance) MAIS on recale les aiguilles sur la
+        // position exacte : l'élève voit alors le modèle parfait, et l'écart
+        // approximatif → exact s'anime tout seul (transition du composant Hand).
+        setHourAngle(hourAngleOf(target.h, target.m))
+        setMinuteAngle(minuteAngleOf(target.m))
         setValidated(true)
         setFeedback(true)
+        setPrecise(wasPrecise)
         setHint(null)
         if (onValidate) onValidate({ placed: { h: readHours, m: readMinutes }, target, correct: true, attempts: attempts + 1 })
-        if (ttsEnabled) speak('Bravo, c\'est correct !')
+        if (ttsEnabled) {
+          speak(
+            wasPrecise
+              ? `Parfait ! Il est exactement ${formatTime(target.h, target.m)}.`
+              : `Bravo, c'est validé ! Regarde la position exacte des aiguilles.`
+          )
+        }
       } else {
         setAttempts((n) => n + 1)
         const parts = []
@@ -466,7 +483,12 @@ export default function Clock({ config = {}, onValidate }) {
               : 'bg-blue-50 text-blue-700 border border-blue-200'
           }`}
         >
-          {feedback === true && `✓ Correct ! Il est ${isPlaceMode ? formatTime(target.h, target.m) : formatTime(readHours, readMinutes)}.`}
+          {feedback === true &&
+            isPlaceMode &&
+            (precise
+              ? `✓ Parfait ! Il est exactement ${formatTime(target.h, target.m)}.`
+              : `✓ Bravo, c'est validé ! Les aiguilles sont maintenant à la position exacte pour ${formatTime(target.h, target.m)} — observe-la bien.`)}
+          {feedback === true && !isPlaceMode && `✓ Correct ! Il est ${formatTime(readHours, readMinutes)}.`}
           {feedback === 'solution' && `Voici ${formatTime(target.h, target.m)} — regarde bien la position des deux aiguilles.`}
           {feedback === false &&
             isReadMode &&
