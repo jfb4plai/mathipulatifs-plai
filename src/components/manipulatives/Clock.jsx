@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useAccessibility } from '../../contexts/AccessibilityContext.jsx'
 
 const SIZE = 260
@@ -82,13 +82,15 @@ function hourHint(h, m) {
 /** Une aiguille : trait visible + zone de saisie large (trait invisible épais
  *  et poignée pleine 44px+) le tout dans un groupe tourné, ce qui permet une
  *  animation fluide quand on révèle la solution. */
-function Hand({ angle, length, stroke, strokeWidth, handleFill, active, interactive, listeners, aria }) {
+function Hand({ angle, length, stroke, strokeWidth, handleFill, active, interactive, slow, listeners, aria }) {
   return (
     <g
       style={{
         transform: `rotate(${angle}deg)`,
         transformOrigin: `${CENTER}px ${CENTER}px`,
-        transition: active ? 'none' : 'transform 0.4s ease',
+        // Pendant la manipulation : aucune latence. Recalage de correction :
+        // lent (2 s) pour que l'élève voie l'aiguille se déplacer. Sinon 0,4 s.
+        transition: active ? 'none' : slow ? 'transform 2s ease-in-out' : 'transform 0.4s ease',
       }}
     >
       <line
@@ -153,13 +155,18 @@ export default function Clock({ config = {}, onValidate }) {
   const [validated, setValidated] = useState(false)
   const [feedback, setFeedback] = useState(null) // true | false | 'solution' | null
   const [precise, setPrecise] = useState(false) // placement déjà exact, sans recalage visible
+  const [correcting, setCorrecting] = useState(false) // phase de recalage lent en cours
   const [attempts, setAttempts] = useState(0)
   const [hint, setHint] = useState(null)
   const [readH, setReadH] = useState('')
   const [readM, setReadM] = useState('')
 
   const svgRef = useRef(null)
+  const correctionTimer = useRef(null)
   const locked = validated || isReadMode
+
+  // Nettoie le minuteur de recalage si le composant est démonté avant qu'il ne se déclenche.
+  useEffect(() => () => clearTimeout(correctionTimer.current), [])
 
   // Lecture interprétée du cadran : l'heure vient du secteur où se trouve la
   // petite aiguille, les minutes de la grande arrondie à la minute.
@@ -213,22 +220,23 @@ export default function Clock({ config = {}, onValidate }) {
         const wasPrecise =
           angDiff(hourAngle, hourAngleOf(target.h, target.m)) <= 4 &&
           angDiff(minuteAngle, minuteAngleOf(target.m)) <= 4
-        // On valide l'effort (tolérance) MAIS on recale les aiguilles sur la
-        // position exacte : l'élève voit alors le modèle parfait, et l'écart
-        // approximatif → exact s'anime tout seul (transition du composant Hand).
-        setHourAngle(hourAngleOf(target.h, target.m))
-        setMinuteAngle(minuteAngleOf(target.m))
+        // On valide l'effort (tolérance). Si le placement est approximatif, on
+        // LAISSE d'abord l'élève regarder sa réponse ~2,5 s, PUIS on recale
+        // lentement (2 s) les aiguilles sur la position exacte pour qu'il voie
+        // le déplacement et mémorise le bon modèle.
         setValidated(true)
         setFeedback(true)
         setPrecise(wasPrecise)
         setHint(null)
         if (onValidate) onValidate({ placed: { h: readHours, m: readMinutes }, target, correct: true, attempts: attempts + 1 })
-        if (ttsEnabled) {
-          speak(
-            wasPrecise
-              ? `Parfait ! Il est exactement ${formatTime(target.h, target.m)}.`
-              : `Bravo, c'est validé ! Regarde la position exacte des aiguilles.`
-          )
+        if (ttsEnabled) speak(wasPrecise ? `Parfait ! Il est exactement ${formatTime(target.h, target.m)}.` : 'Bravo ! Regarde bien ta réponse.')
+        if (!wasPrecise) {
+          correctionTimer.current = setTimeout(() => {
+            setCorrecting(true)
+            setHourAngle(hourAngleOf(target.h, target.m))
+            setMinuteAngle(minuteAngleOf(target.m))
+            if (ttsEnabled) speak(`Voici la position exacte pour ${formatTime(target.h, target.m)}.`)
+          }, 2500)
         }
       } else {
         setAttempts((n) => n + 1)
@@ -361,6 +369,7 @@ export default function Clock({ config = {}, onValidate }) {
             handleFill="#1A202C"
             active={activePointer.hour !== null}
             interactive={!locked}
+            slow={correcting}
             listeners={listenersFor('hour')}
             aria={hourAria}
           />
@@ -372,6 +381,7 @@ export default function Clock({ config = {}, onValidate }) {
             handleFill="#3182CE"
             active={activePointer.minute !== null}
             interactive={!locked}
+            slow={correcting}
             listeners={listenersFor('minute')}
             aria={minuteAria}
           />
@@ -487,7 +497,9 @@ export default function Clock({ config = {}, onValidate }) {
             isPlaceMode &&
             (precise
               ? `✓ Parfait ! Il est exactement ${formatTime(target.h, target.m)}.`
-              : `✓ Bravo, c'est validé ! Les aiguilles sont maintenant à la position exacte pour ${formatTime(target.h, target.m)} — observe-la bien.`)}
+              : correcting
+              ? `Regarde les aiguilles se placer sur la position exacte pour ${formatTime(target.h, target.m)}.`
+              : `✓ Bravo, c'est validé ! Observe bien ta réponse…`)}
           {feedback === true && !isPlaceMode && `✓ Correct ! Il est ${formatTime(readHours, readMinutes)}.`}
           {feedback === 'solution' && `Voici ${formatTime(target.h, target.m)} — regarde bien la position des deux aiguilles.`}
           {feedback === false &&
