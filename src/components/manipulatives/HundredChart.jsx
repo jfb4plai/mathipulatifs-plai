@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useAccessibility } from '../../contexts/AccessibilityContext.jsx'
 
 const PALETTE = [
@@ -14,6 +14,8 @@ export default function HundredChart({ config = {}, onValidate }) {
     startAt = 1,        // 1 or 0
     mode = 'libre',     // 'libre' | 'multiples'
     multipleOf,         // used when mode = 'multiples'
+    allowMultipleAttempts = true,
+    showSolutionAfterAttempts = 2,
   } = config
 
   const total = 100
@@ -23,7 +25,15 @@ export default function HundredChart({ config = {}, onValidate }) {
   const [colored, setColored] = useState({})
   const [activeColor, setActiveColor] = useState('yellow')
   const [validated, setValidated] = useState(false)
-  const [revealed, setRevealed] = useState(false)
+  const [attempts, setAttempts] = useState(0)
+  const [hint, setHint] = useState(null)
+  const [solutionShown, setSolutionShown] = useState(false)
+  const revealTimer = useRef(null)
+
+  useEffect(() => () => clearTimeout(revealTimer.current), [])
+
+  const hasTarget = mode === 'multiples' && !!multipleOf
+  const expectedMultiples = hasTarget ? numbers.filter((n) => n !== 0 && n % multipleOf === 0) : []
 
   const toggleCell = (n) => {
     if (validated) return
@@ -41,41 +51,78 @@ export default function HundredChart({ config = {}, onValidate }) {
   const clearAll = () => {
     if (validated) return
     setColored({})
-    setRevealed(false)
   }
 
-  const handleReveal = () => {
-    if (!multipleOf) return
-    const auto = {}
-    numbers.forEach((n) => {
-      if (n !== 0 && n % multipleOf === 0) auto[n] = 'green'
-    })
-    setColored(auto)
-    setRevealed(true)
+  const buildHint = (coloredNumbers) => {
+    const userSet = new Set(coloredNumbers)
+    const missing = expectedMultiples.filter((n) => !userSet.has(n))
+    const extra = coloredNumbers.filter((n) => n === 0 || n % multipleOf !== 0)
+    const parts = []
+    if (missing.length > 0) {
+      parts.push(`Il te manque ${missing.length} multiple${missing.length > 1 ? 's' : ''} de ${multipleOf}.`)
+    }
+    if (extra.length > 0) {
+      parts.push(
+        `Tu as colorié ${extra.length} case${extra.length > 1 ? 's' : ''} qui ne ${extra.length > 1 ? 'sont' : 'est'} pas ${extra.length > 1 ? 'des' : 'un'} multiple${extra.length > 1 ? 's' : ''} de ${multipleOf}.`
+      )
+    }
+    return parts.join(' ')
+  }
+
+  const revealSolution = (n, studentResult) => {
+    setValidated(true)
+    setSolutionShown(true)
+    setHint(null)
+    if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n, solutionShown: true })
+    if (ttsEnabled) speak(`Regarde : voici les multiples de ${multipleOf}.`)
+    // Laisse l'élève voir sa réponse ~2 s, puis colorie la bonne.
+    revealTimer.current = setTimeout(() => {
+      const auto = {}
+      expectedMultiples.forEach((n) => { auto[n] = 'green' })
+      setColored(auto)
+    }, 2000)
   }
 
   const handleValidate = () => {
-    setValidated(true)
     const coloredNumbers = Object.keys(colored).map(Number)
-    let correct = null
-    if (mode === 'multiples' && multipleOf) {
-      const expected = numbers.filter((n) => n !== 0 && n % multipleOf === 0)
-      const userSet = new Set(coloredNumbers)
-      const expectedSet = new Set(expected)
-      correct =
-        userSet.size === expectedSet.size &&
-        [...expectedSet].every((n) => userSet.has(n))
+    const studentResult = { colored: coloredNumbers, multipleOf }
+
+    // Coloriage libre : pas de cible.
+    if (!hasTarget) {
+      setValidated(true)
+      if (onValidate) onValidate({ ...studentResult, correct: null })
+      if (ttsEnabled) speak(`${coloredNumbers.length} cases coloriées`)
+      return
     }
-    const result = { colored: coloredNumbers, correct, multipleOf }
-    if (onValidate) onValidate(result)
-    if (ttsEnabled) {
-      speak(
-        correct === null
-          ? `${coloredNumbers.length} cases coloriées`
-          : correct
-          ? 'Bonne réponse !'
-          : 'Pas tout à fait, regarde les multiples surlignés.'
-      )
+
+    const userSet = new Set(coloredNumbers)
+    const correct =
+      userSet.size === expectedMultiples.length && expectedMultiples.every((n) => userSet.has(n))
+
+    const n = attempts + 1
+    setAttempts(n)
+
+    if (correct) {
+      setValidated(true)
+      setHint(null)
+      if (onValidate) onValidate({ ...studentResult, correct: true, attempts: n })
+      if (ttsEnabled) speak('Bravo, bonne réponse !')
+      return
+    }
+
+    if (!allowMultipleAttempts) {
+      setValidated(true)
+      if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n })
+      if (ttsEnabled) speak('Pas tout à fait.')
+      return
+    }
+
+    const msg = buildHint(coloredNumbers)
+    setHint(msg)
+    if (ttsEnabled) speak(msg)
+
+    if (showSolutionAfterAttempts > 0 && n >= showSolutionAfterAttempts) {
+      revealSolution(n, studentResult)
     }
   }
 
@@ -97,6 +144,16 @@ export default function HundredChart({ config = {}, onValidate }) {
   }
 
   const coloredCount = Object.keys(colored).length
+
+  // Reflète la validation, pas l'état courant : après révélation, la grille
+  // contient la solution et ne doit surtout pas s'afficher comme « correcte ».
+  const finalCorrect = (() => {
+    if (!hasTarget) return null
+    if (solutionShown) return false
+    if (!validated) return null
+    const userSet = new Set(Object.keys(colored).map(Number))
+    return userSet.size === expectedMultiples.length && expectedMultiples.every((n) => userSet.has(n))
+  })()
 
   return (
     <div>
@@ -176,39 +233,40 @@ export default function HundredChart({ config = {}, onValidate }) {
         ))}
       </div>
 
+      {/* Indice après une réponse fausse — l'élève peut réessayer */}
+      {hint && !validated && (
+        <div className="mb-3 p-4 rounded-xl bg-amber-50 border border-amber-300">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl" aria-hidden="true">💡</span>
+            <p className="font-semibold text-amber-800 text-sm flex-1" aria-live="polite">{hint}</p>
+          </div>
+        </div>
+      )}
+
       {/* Actions */}
       {!validated && (
-        <div className="flex gap-2 flex-wrap">
-          {mode === 'multiples' && multipleOf && (
-            <button
-              onClick={handleReveal}
-              className="flex-1 py-2.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold rounded-xl transition-colors min-h-[44px] text-sm"
-            >
-              Révéler les multiples de {multipleOf}
-            </button>
-          )}
-          <button
-            onClick={handleValidate}
-            className="flex-1 py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl transition-colors min-h-[44px]"
-          >
-            Valider
-          </button>
-        </div>
+        <button
+          onClick={handleValidate}
+          className="w-full py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl transition-colors min-h-[44px]"
+        >
+          Valider
+        </button>
       )}
 
       {validated && (
         <div
-          className={`p-3 rounded-xl text-center font-bold text-sm ${
-            mode === 'multiples'
-              ? colored && Object.keys(colored).length > 0
-                ? 'bg-green-50 text-green-700 border border-green-200'
-                : 'bg-blue-50 text-blue-700 border border-blue-200'
+          className={`mt-3 p-3 rounded-xl text-center font-bold text-sm ${
+            finalCorrect === true
+              ? 'bg-green-50 text-green-700 border border-green-200'
+              : finalCorrect === false
+              ? 'bg-orange-50 text-orange-700 border border-orange-200'
               : 'bg-blue-50 text-blue-700 border border-blue-200'
           }`}
         >
-          {mode === 'multiples' && multipleOf
-            ? `${coloredCount} multiple${coloredCount > 1 ? 's' : ''} de ${multipleOf} coloriés`
-            : `${coloredCount} case${coloredCount > 1 ? 's' : ''} coloriée${coloredCount > 1 ? 's' : ''}`}
+          {finalCorrect === true && `✓ Correct ! Tous les multiples de ${multipleOf} sont coloriés.`}
+          {solutionShown && `Voici les multiples de ${multipleOf} — regarde bien la grille.`}
+          {finalCorrect === false && !solutionShown && `Pas tout à fait — les multiples de ${multipleOf} ne sont pas tous corrects.`}
+          {finalCorrect === null && `${coloredCount} case${coloredCount > 1 ? 's' : ''} coloriée${coloredCount > 1 ? 's' : ''}`}
         </div>
       )}
     </div>
