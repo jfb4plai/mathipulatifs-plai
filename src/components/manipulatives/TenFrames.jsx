@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useAccessibility } from '../../contexts/AccessibilityContext.jsx'
 
 const COLORS = {
@@ -14,13 +14,22 @@ export default function TenFrames({ config = {}, onValidate }) {
     targetNumber,
     counterColor = 'red',
     showCounter = true,
+    allowMultipleAttempts = true,
+    showSolutionAfterAttempts = 2,
   } = config
 
   const totalCells = frames * 10
   const [filled, setFilled] = useState(new Set())
   const [validated, setValidated] = useState(false)
+  const [attempts, setAttempts] = useState(0)
+  const [hint, setHint] = useState(null)
+  const [solutionShown, setSolutionShown] = useState(false)
+  const revealTimer = useRef(null)
+
+  useEffect(() => () => clearTimeout(revealTimer.current), [])
 
   const count = filled.size
+  const hasTarget = targetNumber !== undefined && targetNumber !== null
 
   const toggleCell = (idx) => {
     if (validated) return
@@ -31,23 +40,65 @@ export default function TenFrames({ config = {}, onValidate }) {
     })
   }
 
-  const handleValidate = () => {
+  const buildHint = () => {
+    const diff = targetNumber - count
+    if (diff > 0) return `Tu as rempli ${count} cercle${count > 1 ? 's' : ''}. Il t'en manque ${diff}.`
+    return `Tu as rempli ${count} cercles. C'est ${-diff} de trop.`
+  }
+
+  const revealSolution = (n, studentResult) => {
     setValidated(true)
-    const correct = targetNumber !== undefined ? count === targetNumber : null
-    const result = { count, filled: [...filled], correct, targetNumber }
-    if (onValidate) onValidate(result)
-    if (ttsEnabled) {
-      speak(
-        correct === null
-          ? `Total : ${count}`
-          : correct
-          ? 'Bonne réponse !'
-          : `Pas tout à fait. La cible était ${targetNumber}.`
-      )
+    setSolutionShown(true)
+    setHint(null)
+    if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n, solutionShown: true })
+    if (ttsEnabled) speak(`Regarde : voici ${targetNumber}.`)
+    // Laisse l'élève voir sa réponse ~2 s, puis affiche la bonne.
+    revealTimer.current = setTimeout(() => {
+      setFilled(new Set(Array.from({ length: targetNumber }, (_, i) => i)))
+    }, 2000)
+  }
+
+  const handleValidate = () => {
+    const studentResult = { count, filled: [...filled], targetNumber }
+
+    // Exploration libre : pas de cible, on enregistre et on verrouille.
+    if (!hasTarget) {
+      setValidated(true)
+      if (onValidate) onValidate({ ...studentResult, correct: null })
+      if (ttsEnabled) speak(`Total : ${count}`)
+      return
+    }
+
+    const n = attempts + 1
+    setAttempts(n)
+
+    if (count === targetNumber) {
+      setValidated(true)
+      setHint(null)
+      if (onValidate) onValidate({ ...studentResult, correct: true, attempts: n })
+      if (ttsEnabled) speak('Bravo, bonne réponse !')
+      return
+    }
+
+    // Réponse fausse.
+    if (!allowMultipleAttempts) {
+      setValidated(true)
+      if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n })
+      if (ttsEnabled) speak(`Pas tout à fait. La cible était ${targetNumber}.`)
+      return
+    }
+
+    const msg = buildHint()
+    setHint(msg)
+    if (ttsEnabled) speak(msg)
+
+    if (showSolutionAfterAttempts > 0 && n >= showSolutionAfterAttempts) {
+      revealSolution(n, studentResult)
     }
   }
 
-  const isCorrect = targetNumber !== undefined ? count === targetNumber : null
+  // Après révélation, `filled` contient la solution : on ne doit pas afficher « correct ».
+  const isCorrect = !hasTarget ? null : solutionShown ? false : count === targetNumber
   const col = COLORS[counterColor] || COLORS.red
 
   // Render a single 2×5 frame starting at cellOffset
@@ -161,6 +212,16 @@ export default function TenFrames({ config = {}, onValidate }) {
         </div>
       )}
 
+      {/* Indice après une réponse fausse — l'élève peut réessayer */}
+      {hint && !validated && (
+        <div className="mb-4 p-4 rounded-xl bg-amber-50 border border-amber-300">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl" aria-hidden="true">💡</span>
+            <p className="font-semibold text-amber-800 text-sm flex-1" aria-live="polite">{hint}</p>
+          </div>
+        </div>
+      )}
+
       {/* Validation */}
       {!validated && (
         <button
@@ -182,7 +243,8 @@ export default function TenFrames({ config = {}, onValidate }) {
           }`}
         >
           {isCorrect === true && `✓ Correct ! ${count} cercles remplis`}
-          {isCorrect === false && `Tu as rempli ${count} cases — Cible : ${targetNumber}`}
+          {solutionShown && `Voici ${targetNumber} — regarde bien le cadre.`}
+          {isCorrect === false && !solutionShown && `Tu as rempli ${count} cases — Cible : ${targetNumber}`}
           {isCorrect === null && `Total : ${count} cercles remplis`}
         </div>
       )}
