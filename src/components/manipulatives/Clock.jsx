@@ -132,7 +132,13 @@ function Hand({ angle, length, stroke, strokeWidth, handleFill, active, interact
 }
 
 export default function Clock({ config = {}, onValidate }) {
-  const { mode = 'libre', granularity = 30, targetTime } = config
+  const {
+    mode = 'libre',
+    granularity = 30,
+    targetTime,
+    allowMultipleAttempts = true,
+    showSolutionAfterAttempts = 2,
+  } = config
   const { dyslexicFont, largeText, focusMode, ttsEnabled, speak } = useAccessibility()
 
   const isReadMode = mode === 'lire'
@@ -158,6 +164,8 @@ export default function Clock({ config = {}, onValidate }) {
   const [correcting, setCorrecting] = useState(false) // phase de recalage lent en cours
   const [attempts, setAttempts] = useState(0)
   const [hint, setHint] = useState(null)
+  const [solutionShown, setSolutionShown] = useState(false)
+  const [revealApplied, setRevealApplied] = useState(false)
   const [readH, setReadH] = useState('')
   const [readM, setReadM] = useState('')
 
@@ -239,13 +247,27 @@ export default function Clock({ config = {}, onValidate }) {
           }, 2500)
         }
       } else {
-        setAttempts((n) => n + 1)
+        const n = attempts + 1
+        setAttempts(n)
+
+        if (!allowMultipleAttempts) {
+          setValidated(true)
+          setFeedback(false)
+          if (onValidate) onValidate({ placed: { h: readHours, m: readMinutes }, target, correct: false, attempts: n })
+          if (ttsEnabled) speak(`Pas tout à fait. Il fallait ${formatTime(target.h, target.m)}.`)
+          return
+        }
+
         const parts = []
         if (!okM) parts.push(minuteHint(target.m))
         if (!okH) parts.push(hourHint(target.h, target.m))
         const msg = parts.join(' ')
         setHint(msg)
         if (ttsEnabled) speak(`Pas encore. ${msg}`)
+
+        if (showSolutionAfterAttempts > 0 && n >= showSolutionAfterAttempts) {
+          revealSolution(n)
+        }
       }
       return
     }
@@ -268,14 +290,22 @@ export default function Clock({ config = {}, onValidate }) {
     if (ttsEnabled) speak(`Il est ${formatTime(readHours, readMinutes)}`)
   }
 
-  const showSolution = () => {
-    if (onValidate) onValidate({ placed: { h: readHours, m: readMinutes }, target, correct: false, attempts, solutionShown: true })
-    setHourAngle(hourAngleOf(target.h, target.m))
-    setMinuteAngle(minuteAngleOf(target.m))
+  const revealSolution = (n) => {
     setValidated(true)
     setFeedback('solution')
-    setHint(null)
+    setSolutionShown(true)
+    if (onValidate) onValidate({ placed: { h: readHours, m: readMinutes }, target, correct: false, attempts: n, solutionShown: true })
     if (ttsEnabled) speak(`Regarde : voici ${formatTime(target.h, target.m)}.`)
+    // Laisse l'élève voir l'indice ~2 s, puis fait glisser lentement les
+    // aiguilles vers la position exacte.
+    correctionTimer.current = setTimeout(() => {
+      setCorrecting(true)
+      setHourAngle(hourAngleOf(target.h, target.m))
+      setMinuteAngle(minuteAngleOf(target.m))
+      setRevealApplied(true)
+      setHint(null)
+      if (ttsEnabled) speak(`Voici la position exacte pour ${formatTime(target.h, target.m)}.`)
+    }, 2000)
   }
 
   const handleReset = () => {
@@ -443,21 +473,11 @@ export default function Clock({ config = {}, onValidate }) {
         </p>
       )}
 
-      {hint && !validated && (
+      {hint && !revealApplied && (
         <div className="mb-4 p-4 rounded-xl bg-amber-50 border border-amber-300">
           <div className="flex items-start gap-3">
             <span className="text-2xl" aria-hidden="true">💡</span>
-            <div className="flex-1">
-              <p className="font-semibold text-amber-800 text-sm">{hint}</p>
-              {attempts >= 2 && (
-                <button
-                  onClick={showSolution}
-                  className="mt-2 text-xs font-bold text-amber-700 underline hover:text-amber-900 min-h-[36px]"
-                >
-                  Montre-moi la réponse
-                </button>
-              )}
-            </div>
+            <p className="font-semibold text-amber-800 text-sm flex-1">{hint}</p>
           </div>
         </div>
       )}
@@ -483,7 +503,7 @@ export default function Clock({ config = {}, onValidate }) {
         </div>
       )}
 
-      {validated && (
+      {validated && (!solutionShown || revealApplied) && (
         <div
           className={`p-3 rounded-xl text-center font-bold text-sm ${
             feedback === true
@@ -505,6 +525,9 @@ export default function Clock({ config = {}, onValidate }) {
           {feedback === false &&
             isReadMode &&
             `Tu as écrit ${readH || '?'}h${pad2(parseInt(readM, 10) || 0)} — L'heure affichée était ${formatTime(fixedTime.h, fixedTime.m)}`}
+          {feedback === false &&
+            isPlaceMode &&
+            `Pas tout à fait — il fallait ${formatTime(target.h, target.m)}.`}
           {feedback === null && `Il est ${formatTime(readHours, readMinutes)}`}
         </div>
       )}
