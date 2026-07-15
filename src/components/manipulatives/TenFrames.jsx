@@ -24,6 +24,7 @@ export default function TenFrames({ config = {}, onValidate }) {
   const [attempts, setAttempts] = useState(0)
   const [hint, setHint] = useState(null)
   const [solutionShown, setSolutionShown] = useState(false)
+  const [revealApplied, setRevealApplied] = useState(false) // true seulement quand la solution est visuellement affichée
   const revealTimer = useRef(null)
 
   useEffect(() => () => clearTimeout(revealTimer.current), [])
@@ -49,12 +50,13 @@ export default function TenFrames({ config = {}, onValidate }) {
   const revealSolution = (n, studentResult) => {
     setValidated(true)
     setSolutionShown(true)
-    setHint(null)
     if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n, solutionShown: true })
     if (ttsEnabled) speak(`Regarde : voici ${targetNumber}.`)
-    // Laisse l'élève voir sa réponse ~2 s, puis affiche la bonne.
+    // Laisse l'élève voir l'indice ~2 s, puis affiche la bonne réponse.
     revealTimer.current = setTimeout(() => {
       setFilled(new Set(Array.from({ length: targetNumber }, (_, i) => i)))
+      setRevealApplied(true)
+      setHint(null)
     }, 2000)
   }
 
@@ -213,7 +215,7 @@ export default function TenFrames({ config = {}, onValidate }) {
       )}
 
       {/* Indice après une réponse fausse — l'élève peut réessayer */}
-      {hint && !validated && (
+      {hint && !revealApplied && (
         <div className="mb-4 p-4 rounded-xl bg-amber-50 border border-amber-300">
           <div className="flex items-start gap-3">
             <span className="text-2xl" aria-hidden="true">💡</span>
@@ -232,7 +234,7 @@ export default function TenFrames({ config = {}, onValidate }) {
         </button>
       )}
 
-      {validated && (
+      {validated && (!solutionShown || revealApplied) && (
         <div
           className={`p-3 rounded-xl text-center font-bold text-sm ${
             isCorrect === true

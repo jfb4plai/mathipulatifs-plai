@@ -136,13 +136,13 @@ export default function NumberLine({ config = {}, onValidate }) {
     setValidated(true)
     setSolutionShown(true)
     setFeedback(false)
-    setHint(null)
     if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n, solutionShown: true })
     if (ttsEnabled) speak(`Regarde : ${target} est ici.`)
-    // Laisse l'élève voir sa réponse ~2 s, puis fait glisser lentement le jeton.
+    // Laisse l'élève voir l'indice ~2 s, puis fait glisser lentement le jeton.
     revealTimer.current = setTimeout(() => {
       setRevealing(true)
       setCurrentValue(target)
+      setHint(null)
     }, 2000)
   }
 
@@ -368,7 +368,7 @@ export default function NumberLine({ config = {}, onValidate }) {
       )}
 
       {/* Indice après une réponse fausse — l'élève peut réessayer */}
-      {hint && !validated && (
+      {hint && !revealing && (
         <div className="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-300">
           <div className="flex items-start gap-3">
             <span className="text-2xl" aria-hidden="true">💡</span>
@@ -378,7 +378,7 @@ export default function NumberLine({ config = {}, onValidate }) {
       )}
 
       {/* Feedback */}
-      {validated && feedback !== null && (
+      {validated && feedback !== null && (!solutionShown || revealing) && (
         <div
           className={`mt-4 p-4 rounded-xl text-center font-bold text-lg ${
             feedback ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-orange-50 text-orange-700 border border-orange-300'

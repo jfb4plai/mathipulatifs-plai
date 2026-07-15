@@ -28,6 +28,7 @@ export default function HundredChart({ config = {}, onValidate }) {
   const [attempts, setAttempts] = useState(0)
   const [hint, setHint] = useState(null)
   const [solutionShown, setSolutionShown] = useState(false)
+  const [revealApplied, setRevealApplied] = useState(false)
   const revealTimer = useRef(null)
 
   useEffect(() => () => clearTimeout(revealTimer.current), [])
@@ -72,14 +73,15 @@ export default function HundredChart({ config = {}, onValidate }) {
   const revealSolution = (n, studentResult) => {
     setValidated(true)
     setSolutionShown(true)
-    setHint(null)
     if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n, solutionShown: true })
     if (ttsEnabled) speak(`Regarde : voici les multiples de ${multipleOf}.`)
-    // Laisse l'élève voir sa réponse ~2 s, puis colorie la bonne.
+    // Laisse l'élève voir l'indice ~2 s, puis colorie la bonne réponse.
     revealTimer.current = setTimeout(() => {
       const auto = {}
       expectedMultiples.forEach((n) => { auto[n] = 'green' })
       setColored(auto)
+      setRevealApplied(true)
+      setHint(null)
     }, 2000)
   }
 
@@ -234,7 +236,7 @@ export default function HundredChart({ config = {}, onValidate }) {
       </div>
 
       {/* Indice après une réponse fausse — l'élève peut réessayer */}
-      {hint && !validated && (
+      {hint && !revealApplied && (
         <div className="mb-3 p-4 rounded-xl bg-amber-50 border border-amber-300">
           <div className="flex items-start gap-3">
             <span className="text-2xl" aria-hidden="true">💡</span>
@@ -253,7 +255,7 @@ export default function HundredChart({ config = {}, onValidate }) {
         </button>
       )}
 
-      {validated && (
+      {validated && (!solutionShown || revealApplied) && (
         <div
           className={`mt-3 p-3 rounded-xl text-center font-bold text-sm ${
             finalCorrect === true

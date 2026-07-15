@@ -104,6 +104,7 @@ export default function Money({ config = {}, onValidate }) {
   const [attempts, setAttempts] = useState(0)
   const [hint, setHint] = useState(null)
   const [solutionShown, setSolutionShown] = useState(false)
+  const [revealApplied, setRevealApplied] = useState(false)
   const revealTimer = useRef(null)
 
   useEffect(() => () => clearTimeout(revealTimer.current), [])
@@ -161,12 +162,13 @@ export default function Money({ config = {}, onValidate }) {
   const revealSolution = (n, studentResult) => {
     setValidated(true)
     setSolutionShown(true)
-    setHint(null)
     if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n, solutionShown: true })
     if (ttsEnabled) speak(`Regarde : voici une façon de faire ${formatCents(target)}.`)
-    // Laisse l'élève voir sa réponse ~2 s, puis compose une solution valide.
+    // Laisse l'élève voir l'indice ~2 s, puis compose une solution valide.
     revealTimer.current = setTimeout(() => {
       setWorkspace(greedyCoins(target, availableDenoms))
+      setRevealApplied(true)
+      setHint(null)
     }, 2000)
   }
 
@@ -344,7 +346,7 @@ export default function Money({ config = {}, onValidate }) {
             </div>
           )}
 
-          {hint && !validated && (
+          {hint && !revealApplied && (
             <div className="mt-3 p-4 rounded-xl bg-amber-50 border border-amber-300">
               <div className="flex items-start gap-3">
                 <span className="text-2xl" aria-hidden="true">💡</span>
@@ -363,7 +365,7 @@ export default function Money({ config = {}, onValidate }) {
             </button>
           )}
 
-          {validated && (
+          {validated && (!solutionShown || revealApplied) && (
             <div
               className={`mt-3 p-3 rounded-xl text-center font-bold text-sm ${
                 isCorrect === true
