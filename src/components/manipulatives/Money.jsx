@@ -329,16 +329,18 @@ export default function Money({ config = {}, onValidate }) {
                   style={{ width: `${liveState === 'over' ? 100 : pct}%` }}
                 />
               </div>
-              <p
-                className={`text-sm font-semibold mt-1.5 text-center ${
-                  liveState === 'exact' ? 'text-green-700' : liveState === 'over' ? 'text-orange-600' : 'text-teal-700'
-                }`}
-                aria-live="polite"
-              >
-                {liveState === 'under' && `Il manque ${formatCents(gap)}`}
-                {liveState === 'exact' && '✓ Tu y es — le compte est exact !'}
-                {liveState === 'over' && `Tu as ${formatCents(-gap)} de trop`}
-              </p>
+              {!hint && (
+                <p
+                  className={`text-sm font-semibold mt-1.5 text-center ${
+                    liveState === 'exact' ? 'text-green-700' : liveState === 'over' ? 'text-orange-600' : 'text-teal-700'
+                  }`}
+                  aria-live="polite"
+                >
+                  {liveState === 'under' && `Il manque ${formatCents(gap)}`}
+                  {liveState === 'exact' && '✓ Tu y es — le compte est exact !'}
+                  {liveState === 'over' && `Tu as ${formatCents(-gap)} de trop`}
+                </p>
+              )}
             </div>
           )}
 
