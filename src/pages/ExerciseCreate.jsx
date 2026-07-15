@@ -56,6 +56,44 @@ const manipulatives = [
 
 const FRACTION_DENOMINATORS = [2, 3, 4, 5, 6, 8, 10, 12]
 
+/** Bloc réutilisable : cycle indice/réessai/révélation, commun aux
+ *  manipulables ayant une cible (tous sauf les fractions). */
+function RetryCycleFields({ allow, setAllow, after, setAfter, focusMode, inputClass, labelClass }) {
+  return (
+    <div className="space-y-3 pt-2 border-t border-gray-100">
+      <label className="flex items-start gap-3 cursor-pointer group">
+        <input
+          type="checkbox"
+          checked={allow}
+          onChange={(e) => setAllow(e.target.checked)}
+          className="mt-1 w-5 h-5 accent-blue-500 cursor-pointer"
+        />
+        <div>
+          <div className="font-semibold text-gray-700 text-sm group-hover:text-blue-600 transition-colors">
+            Autoriser plusieurs tentatives
+          </div>
+          {!focusMode && (
+            <div className="text-xs text-gray-500 mt-0.5">
+              L'élève reçoit un indice guidé et peut corriger sa réponse.
+            </div>
+          )}
+        </div>
+      </label>
+      {allow && (
+        <div className="pl-8">
+          <label className={labelClass}>Afficher la solution après combien d'erreurs ?</label>
+          <select value={after} onChange={(e) => setAfter(parseInt(e.target.value))} className={inputClass}>
+            <option value={0}>Jamais (l'élève continue jusqu'à réussir)</option>
+            <option value={2}>Après 2 erreurs</option>
+            <option value={3}>Après 3 erreurs</option>
+            <option value={5}>Après 5 erreurs</option>
+          </select>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function ExerciseCreate() {
   const navigate = useNavigate()
   const { id: editId } = useParams() // présent uniquement en mode édition
@@ -78,6 +116,9 @@ export default function ExerciseCreate() {
   const [dnMax, setDnMax] = useState(20)
   const [dnStep, setDnStep] = useState(1)
   const [dnMode, setDnMode] = useState('libre')
+  const [dnTargetValue, setDnTargetValue] = useState('')
+  const [dnMultipleAttempts, setDnMultipleAttempts] = useState(true)
+  const [dnShowSolutionAfter, setDnShowSolutionAfter] = useState(2)
 
   // Fractions config
   const [fracDenominators, setFracDenominators] = useState([2, 3, 4, 6, 8])
@@ -86,22 +127,30 @@ export default function ExerciseCreate() {
   // Cuisenaire config
   const [cuiTarget, setCuiTarget] = useState('')
   const [cuiShowUnits, setCuiShowUnits] = useState(false)
+  const [cuiMultipleAttempts, setCuiMultipleAttempts] = useState(true)
+  const [cuiShowSolutionAfter, setCuiShowSolutionAfter] = useState(2)
 
   // Cadres à 10 config
   const [tenFrames, setTenFrames] = useState(1)
   const [tenTarget, setTenTarget] = useState('')
   const [tenColor, setTenColor] = useState('red')
+  const [tenMultipleAttempts, setTenMultipleAttempts] = useState(true)
+  const [tenShowSolutionAfter, setTenShowSolutionAfter] = useState(2)
 
   // Grille des 100 config
   const [chartMode, setChartMode] = useState('libre')
   const [chartMultiple, setChartMultiple] = useState(2)
   const [chartStart, setChartStart] = useState(1)
+  const [chartMultipleAttempts, setChartMultipleAttempts] = useState(true)
+  const [chartShowSolutionAfter, setChartShowSolutionAfter] = useState(2)
 
   // Horloge config
   const [clkMode, setClkMode] = useState('libre')
   const [clkGranularity, setClkGranularity] = useState(30)
   const [clkTargetH, setClkTargetH] = useState(3)
   const [clkTargetM, setClkTargetM] = useState(0)
+  const [clkMultipleAttempts, setClkMultipleAttempts] = useState(true)
+  const [clkShowSolutionAfter, setClkShowSolutionAfter] = useState(2)
 
   // Monnaie config
   const [monMode, setMonMode] = useState('composer')
@@ -109,6 +158,8 @@ export default function ExerciseCreate() {
   const [monPrice, setMonPrice] = useState('')
   const [monPaid, setMonPaid] = useState('')
   const [monMaxDenom, setMonMaxDenom] = useState(500)
+  const [monMultipleAttempts, setMonMultipleAttempts] = useState(true)
+  const [monShowSolutionAfter, setMonShowSolutionAfter] = useState(2)
 
   const [loading, setLoading] = useState(false)
   const [loadingExercise, setLoadingExercise] = useState(isEditMode)
@@ -150,6 +201,9 @@ export default function ExerciseCreate() {
           setDnMax(cfg.max ?? 20)
           setDnStep(cfg.step ?? 1)
           setDnMode(cfg.mode || 'libre')
+          setDnTargetValue(cfg.targetValue !== undefined ? String(cfg.targetValue) : '')
+          setDnMultipleAttempts(cfg.allowMultipleAttempts ?? true)
+          setDnShowSolutionAfter(cfg.showSolutionAfterAttempts ?? 2)
         }
         if (data.manipulative === 'fractions') {
           setFracDenominators(cfg.denominators || [2, 3, 4, 6, 8])
@@ -158,16 +212,22 @@ export default function ExerciseCreate() {
         if (data.manipulative === 'cuisenaire') {
           setCuiTarget(cfg.targetNumber !== undefined ? String(cfg.targetNumber) : '')
           setCuiShowUnits(cfg.showUnits || false)
+          setCuiMultipleAttempts(cfg.allowMultipleAttempts ?? true)
+          setCuiShowSolutionAfter(cfg.showSolutionAfterAttempts ?? 2)
         }
         if (data.manipulative === 'cadres10') {
           setTenFrames(cfg.frames || 1)
           setTenTarget(cfg.targetNumber !== undefined ? String(cfg.targetNumber) : '')
           setTenColor(cfg.counterColor || 'red')
+          setTenMultipleAttempts(cfg.allowMultipleAttempts ?? true)
+          setTenShowSolutionAfter(cfg.showSolutionAfterAttempts ?? 2)
         }
         if (data.manipulative === 'grille100') {
           setChartMode(cfg.mode || 'libre')
           setChartMultiple(cfg.multipleOf || 2)
           setChartStart(cfg.startAt ?? 1)
+          setChartMultipleAttempts(cfg.allowMultipleAttempts ?? true)
+          setChartShowSolutionAfter(cfg.showSolutionAfterAttempts ?? 2)
         }
         if (data.manipulative === 'horloge') {
           setClkMode(cfg.mode || 'libre')
@@ -176,6 +236,8 @@ export default function ExerciseCreate() {
             setClkTargetH(cfg.targetTime.h)
             setClkTargetM(cfg.targetTime.m)
           }
+          setClkMultipleAttempts(cfg.allowMultipleAttempts ?? true)
+          setClkShowSolutionAfter(cfg.showSolutionAfterAttempts ?? 2)
         }
         if (data.manipulative === 'monnaie') {
           setMonMode(cfg.mode || 'composer')
@@ -183,6 +245,8 @@ export default function ExerciseCreate() {
           setMonPrice(cfg.price !== undefined ? String(cfg.price / 100) : '')
           setMonPaid(cfg.paid !== undefined ? String(cfg.paid / 100) : '')
           setMonMaxDenom(cfg.maxDenomination || 500)
+          setMonMultipleAttempts(cfg.allowMultipleAttempts ?? true)
+          setMonShowSolutionAfter(cfg.showSolutionAfterAttempts ?? 2)
         }
       } catch (err) {
         setError("Impossible de charger l'exercice.")
@@ -216,7 +280,10 @@ export default function ExerciseCreate() {
         max: parseInt(dnMax),
         step: parseInt(dnStep),
         mode: dnMode,
+        targetValue: dnMode === 'placer' && dnTargetValue !== '' ? parseInt(dnTargetValue) : undefined,
         showLabels: true,
+        allowMultipleAttempts: dnMultipleAttempts,
+        showSolutionAfterAttempts: dnMultipleAttempts ? dnShowSolutionAfter : 1,
         cpaMode,
       }
     }
@@ -232,6 +299,8 @@ export default function ExerciseCreate() {
         targetNumber: cuiTarget !== '' ? parseInt(cuiTarget) : undefined,
         showCounter: true,
         showUnits: cuiShowUnits,
+        allowMultipleAttempts: cuiMultipleAttempts,
+        showSolutionAfterAttempts: cuiMultipleAttempts ? cuiShowSolutionAfter : 1,
         cpaMode,
       }
     }
@@ -241,6 +310,8 @@ export default function ExerciseCreate() {
         targetNumber: tenTarget !== '' ? parseInt(tenTarget) : undefined,
         counterColor: tenColor,
         showCounter: true,
+        allowMultipleAttempts: tenMultipleAttempts,
+        showSolutionAfterAttempts: tenMultipleAttempts ? tenShowSolutionAfter : 1,
         cpaMode,
       }
     }
@@ -249,6 +320,8 @@ export default function ExerciseCreate() {
         startAt: parseInt(chartStart),
         mode: chartMode,
         multipleOf: chartMode === 'multiples' ? parseInt(chartMultiple) : undefined,
+        allowMultipleAttempts: chartMultipleAttempts,
+        showSolutionAfterAttempts: chartMultipleAttempts ? chartShowSolutionAfter : 1,
         cpaMode,
       }
     }
@@ -257,6 +330,8 @@ export default function ExerciseCreate() {
         mode: clkMode,
         granularity: parseInt(clkGranularity),
         targetTime: clkMode === 'placer' ? { h: parseInt(clkTargetH) || 3, m: parseInt(clkTargetM) || 0 } : undefined,
+        allowMultipleAttempts: clkMultipleAttempts,
+        showSolutionAfterAttempts: clkMultipleAttempts ? clkShowSolutionAfter : 1,
         cpaMode,
       }
     }
@@ -267,6 +342,8 @@ export default function ExerciseCreate() {
         price: monMode === 'rendu' ? Math.round(parseFloat(monPrice || 0) * 100) : undefined,
         paid: monMode === 'rendu' ? Math.round(parseFloat(monPaid || 0) * 100) : undefined,
         maxDenomination: parseInt(monMaxDenom),
+        allowMultipleAttempts: monMultipleAttempts,
+        showSolutionAfterAttempts: monMultipleAttempts ? monShowSolutionAfter : 1,
         cpaMode,
       }
     }
@@ -667,6 +744,31 @@ export default function ExerciseCreate() {
                     <option value="placer">Placer un nombre (exercice guidé)</option>
                   </select>
                 </div>
+                {dnMode === 'placer' && (
+                  <>
+                    <div>
+                      <label className={labelClass}>Nombre à placer (optionnel)</label>
+                      <input
+                        type="number"
+                        value={dnTargetValue}
+                        onChange={(e) => setDnTargetValue(e.target.value)}
+                        min={dnMin}
+                        max={dnMax}
+                        placeholder="Ex : 13 (laisser vide pour un tirage au hasard)"
+                        className={inputClass}
+                      />
+                    </div>
+                    <RetryCycleFields
+                      allow={dnMultipleAttempts}
+                      setAllow={setDnMultipleAttempts}
+                      after={dnShowSolutionAfter}
+                      setAfter={setDnShowSolutionAfter}
+                      focusMode={focusMode}
+                      inputClass={inputClass}
+                      labelClass={labelClass}
+                    />
+                  </>
+                )}
               </div>
             )}
 
@@ -735,6 +837,17 @@ export default function ExerciseCreate() {
                     </div>
                   </label>
                 </div>
+                {cuiTarget !== '' && (
+                  <RetryCycleFields
+                    allow={cuiMultipleAttempts}
+                    setAllow={setCuiMultipleAttempts}
+                    after={cuiShowSolutionAfter}
+                    setAfter={setCuiShowSolutionAfter}
+                    focusMode={focusMode}
+                    inputClass={inputClass}
+                    labelClass={labelClass}
+                  />
+                )}
               </div>
             )}
 
@@ -767,6 +880,17 @@ export default function ExerciseCreate() {
                     <option value="yellow">🟡 Jaune</option>
                   </select>
                 </div>
+                {tenTarget !== '' && (
+                  <RetryCycleFields
+                    allow={tenMultipleAttempts}
+                    setAllow={setTenMultipleAttempts}
+                    after={tenShowSolutionAfter}
+                    setAfter={setTenShowSolutionAfter}
+                    focusMode={focusMode}
+                    inputClass={inputClass}
+                    labelClass={labelClass}
+                  />
+                )}
               </div>
             )}
 
@@ -787,17 +911,28 @@ export default function ExerciseCreate() {
                   </select>
                 </div>
                 {chartMode === 'multiples' && (
-                  <div>
-                    <label className={labelClass}>Multiples de quel nombre ?</label>
-                    <input
-                      type="number"
-                      value={chartMultiple}
-                      onChange={(e) => setChartMultiple(e.target.value)}
-                      min={2}
-                      max={20}
-                      className={inputClass}
+                  <>
+                    <div>
+                      <label className={labelClass}>Multiples de quel nombre ?</label>
+                      <input
+                        type="number"
+                        value={chartMultiple}
+                        onChange={(e) => setChartMultiple(e.target.value)}
+                        min={2}
+                        max={20}
+                        className={inputClass}
+                      />
+                    </div>
+                    <RetryCycleFields
+                      allow={chartMultipleAttempts}
+                      setAllow={setChartMultipleAttempts}
+                      after={chartShowSolutionAfter}
+                      setAfter={setChartShowSolutionAfter}
+                      focusMode={focusMode}
+                      inputClass={inputClass}
+                      labelClass={labelClass}
                     />
-                  </div>
+                  </>
                 )}
               </div>
             )}
@@ -846,6 +981,17 @@ export default function ExerciseCreate() {
                       />
                     </div>
                   </div>
+                )}
+                {clkMode === 'placer' && (
+                  <RetryCycleFields
+                    allow={clkMultipleAttempts}
+                    setAllow={setClkMultipleAttempts}
+                    after={clkShowSolutionAfter}
+                    setAfter={setClkShowSolutionAfter}
+                    focusMode={focusMode}
+                    inputClass={inputClass}
+                    labelClass={labelClass}
+                  />
                 )}
               </div>
             )}
@@ -909,6 +1055,17 @@ export default function ExerciseCreate() {
                     <option value={5000}>50 € max</option>
                   </select>
                 </div>
+                {(monMode === 'rendu' || monTarget !== '') && (
+                  <RetryCycleFields
+                    allow={monMultipleAttempts}
+                    setAllow={setMonMultipleAttempts}
+                    after={monShowSolutionAfter}
+                    setAfter={setMonShowSolutionAfter}
+                    focusMode={focusMode}
+                    inputClass={inputClass}
+                    labelClass={labelClass}
+                  />
+                )}
               </div>
             )}
 
