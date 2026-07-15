@@ -2,7 +2,16 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useAccessibility } from '../../contexts/AccessibilityContext.jsx'
 
 export default function NumberLine({ config = {}, onValidate }) {
-  const { min = 0, max = 20, step = 1, showLabels = true, mode = 'libre' } = config
+  const {
+    min = 0,
+    max = 20,
+    step = 1,
+    showLabels = true,
+    mode = 'libre',
+    targetValue,                    // cible imposée par l'enseignant (optionnelle)
+    allowMultipleAttempts = true,
+    showSolutionAfterAttempts = 2,
+  } = config
   const { dyslexicFont, largeText, focusMode, ttsEnabled, speak } = useAccessibility()
 
   const ticks = []
@@ -12,10 +21,21 @@ export default function NumberLine({ config = {}, onValidate }) {
   const [isDragging, setIsDragging] = useState(false)
   const [validated, setValidated] = useState(false)
   const [feedback, setFeedback] = useState(null)
+  const [attempts, setAttempts] = useState(0)
+  const [hint, setHint] = useState(null)
+  const [solutionShown, setSolutionShown] = useState(false)
+  const [revealing, setRevealing] = useState(false)
+  const revealTimer = useRef(null)
 
-  // For mode 'placer', pick a random target
+  useEffect(() => () => clearTimeout(revealTimer.current), [])
+
+  // Cible : celle de l'enseignant si fournie (recalée sur la graduation la plus
+  // proche), sinon tirage au hasard comme avant.
   const [target] = useState(() => {
     if (mode !== 'placer') return null
+    if (targetValue !== undefined && targetValue !== null) {
+      return ticks.reduce((best, t) => (Math.abs(t - targetValue) < Math.abs(best - targetValue) ? t : best), ticks[0])
+    }
     const idx = Math.floor(Math.random() * ticks.length)
     return ticks[idx]
   })
@@ -107,20 +127,75 @@ export default function NumberLine({ config = {}, onValidate }) {
     }
   }, [handlePointerMove, handlePointerUp])
 
-  const handleValidate = () => {
-    const isCorrect = mode === 'placer' ? currentValue === target : true
+  const buildHint = () => {
+    const direction = currentValue < target ? 'à droite' : 'à gauche'
+    return `Tu es sur ${currentValue}. Le nombre ${target} est plus ${direction}.`
+  }
+
+  const revealSolution = (n, studentResult) => {
     setValidated(true)
-    setFeedback(isCorrect)
-    if (onValidate) onValidate({ value: currentValue, target, correct: isCorrect })
-    if (ttsEnabled) {
-      speak(isCorrect ? 'Bravo, c\'est correct !' : `Pas tout à fait. La réponse était ${target}.`)
+    setSolutionShown(true)
+    setFeedback(false)
+    setHint(null)
+    if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n, solutionShown: true })
+    if (ttsEnabled) speak(`Regarde : ${target} est ici.`)
+    // Laisse l'élève voir sa réponse ~2 s, puis fait glisser lentement le jeton.
+    revealTimer.current = setTimeout(() => {
+      setRevealing(true)
+      setCurrentValue(target)
+    }, 2000)
+  }
+
+  const handleValidate = () => {
+    const studentResult = { value: currentValue, target }
+
+    // Mode libre : pas de cible.
+    if (mode !== 'placer') {
+      setValidated(true)
+      setFeedback(null)
+      if (onValidate) onValidate({ ...studentResult, correct: null })
+      if (ttsEnabled) speak(`Tu es sur ${currentValue}`)
+      return
+    }
+
+    const n = attempts + 1
+    setAttempts(n)
+
+    if (currentValue === target) {
+      setValidated(true)
+      setFeedback(true)
+      setHint(null)
+      if (onValidate) onValidate({ ...studentResult, correct: true, attempts: n })
+      if (ttsEnabled) speak('Bravo, c\'est correct !')
+      return
+    }
+
+    if (!allowMultipleAttempts) {
+      setValidated(true)
+      setFeedback(false)
+      if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n })
+      if (ttsEnabled) speak(`Pas tout à fait. La réponse était ${target}.`)
+      return
+    }
+
+    const msg = buildHint()
+    setHint(msg)
+    if (ttsEnabled) speak(msg)
+
+    if (showSolutionAfterAttempts > 0 && n >= showSolutionAfterAttempts) {
+      revealSolution(n, studentResult)
     }
   }
 
   const handleReset = () => {
+    clearTimeout(revealTimer.current)
     setCurrentValue(min)
     setValidated(false)
     setFeedback(null)
+    setHint(null)
+    setAttempts(0)
+    setSolutionShown(false)
+    setRevealing(false)
   }
 
   const tokenX = valueToX(currentValue)
@@ -238,10 +313,16 @@ export default function NumberLine({ config = {}, onValidate }) {
             </g>
           )}
 
-          {/* Token */}
-          <g>
+          {/* Token — groupe translaté pour pouvoir animer le glissement de révélation */}
+          <g
+            style={{
+              transform: `translateX(${tokenX}px)`,
+              // Pendant le glissement : aucune latence. Révélation : lent et visible.
+              transition: isDragging ? 'none' : revealing ? 'transform 2s ease-in-out' : 'transform 0.3s ease',
+            }}
+          >
             <circle
-              cx={tokenX}
+              cx={0}
               cy={lineY}
               r={tokenR}
               fill={validated ? (feedback ? '#22C55E' : '#EF4444') : '#3B82F6'}
@@ -250,7 +331,7 @@ export default function NumberLine({ config = {}, onValidate }) {
               style={{ filter: isDragging ? 'drop-shadow(0 4px 8px rgba(59,130,246,0.5))' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }}
             />
             <text
-              x={tokenX}
+              x={0}
               y={lineY + 5}
               textAnchor="middle"
               fontSize={largeText ? 16 : 13}
@@ -286,14 +367,26 @@ export default function NumberLine({ config = {}, onValidate }) {
         </p>
       )}
 
+      {/* Indice après une réponse fausse — l'élève peut réessayer */}
+      {hint && !validated && (
+        <div className="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-300">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl" aria-hidden="true">💡</span>
+            <p className="font-semibold text-amber-800 text-sm flex-1" aria-live="polite">{hint}</p>
+          </div>
+        </div>
+      )}
+
       {/* Feedback */}
       {validated && feedback !== null && (
         <div
           className={`mt-4 p-4 rounded-xl text-center font-bold text-lg ${
-            feedback ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-red-100 text-red-700 border border-red-300'
+            feedback ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-orange-50 text-orange-700 border border-orange-300'
           }`}
         >
-          {feedback ? `✅ Bravo ! ${currentValue} est correct !` : `❌ Pas tout à fait. La réponse était ${target}.`}
+          {feedback && `✅ Bravo ! ${currentValue} est correct !`}
+          {!feedback && solutionShown && `Voici où se trouve ${target} — regarde bien.`}
+          {!feedback && !solutionShown && `Pas tout à fait. La réponse était ${target}.`}
         </div>
       )}
 
