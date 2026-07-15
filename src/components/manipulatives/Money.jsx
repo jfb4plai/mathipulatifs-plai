@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useAccessibility } from '../../contexts/AccessibilityContext.jsx'
 
 const DENOMS = [
@@ -25,6 +25,21 @@ function formatCents(c) {
   const cents = abs % 100
   if (cents === 0) return `${sign}${euros} €`
   return `${sign}${euros},${String(cents).padStart(2, '0')} €`
+}
+
+/** Composition gloutonne exacte : les plus grosses valeurs d'abord.
+ *  La pièce de 1 centime est toujours disponible, donc le reste tombe à 0. */
+function greedyCoins(target, denoms) {
+  const out = []
+  let rest = target
+  const desc = [...denoms].sort((a, b) => b.value - a.value)
+  for (const d of desc) {
+    while (rest >= d.value) {
+      out.push(d.value)
+      rest -= d.value
+    }
+  }
+  return out
 }
 
 function CoinShape({ denom, size = 48 }) {
@@ -71,13 +86,27 @@ function CoinShape({ denom, size = 48 }) {
 }
 
 export default function Money({ config = {}, onValidate }) {
-  const { mode = 'composer', targetAmount, price, paid, maxDenomination = 500 } = config
+  const {
+    mode = 'composer',
+    targetAmount,
+    price,
+    paid,
+    maxDenomination = 500,
+    allowMultipleAttempts = true,
+    showSolutionAfterAttempts = 2,
+  } = config
   const { dyslexicFont, largeText, focusMode, ttsEnabled, speak } = useAccessibility()
 
   const availableDenoms = useMemo(() => DENOMS.filter((d) => d.value <= maxDenomination), [maxDenomination])
 
   const [workspace, setWorkspace] = useState([])
   const [validated, setValidated] = useState(false)
+  const [attempts, setAttempts] = useState(0)
+  const [hint, setHint] = useState(null)
+  const [solutionShown, setSolutionShown] = useState(false)
+  const revealTimer = useRef(null)
+
+  useEffect(() => () => clearTimeout(revealTimer.current), [])
 
   const total = workspace.reduce((sum, v) => sum + v, 0)
   const changeExpected = mode === 'rendu' ? (paid ?? 0) - (price ?? 0) : null
@@ -115,23 +144,71 @@ export default function Money({ config = {}, onValidate }) {
     setWorkspace([])
   }
 
-  const handleValidate = () => {
+  const buildHint = () => {
+    const gap = target - total
+    if (gap > 0) {
+      // Suggère la plus grosse pièce/billet disponible qui tienne dans l'écart.
+      const suggestion = [...availableDenoms].sort((a, b) => b.value - a.value).find((d) => d.value <= gap)
+      if (suggestion) {
+        const article = suggestion.type === 'billet' ? 'un billet de' : 'une pièce de'
+        return `Il te manque ${formatCents(gap)} — essaie d'ajouter ${article} ${suggestion.spoken}.`
+      }
+      return `Il te manque ${formatCents(gap)}.`
+    }
+    return `Tu as ${formatCents(-gap)} de trop — retire une pièce ou un billet.`
+  }
+
+  const revealSolution = (n, studentResult) => {
     setValidated(true)
-    const correct = hasTarget ? total === target : null
-    const result = { total, workspace, correct, target }
-    if (onValidate) onValidate(result)
-    if (ttsEnabled) {
-      speak(
-        correct === null
-          ? `Total : ${formatCents(total)}`
-          : correct
-          ? 'Bonne réponse !'
-          : `Pas tout à fait. Il fallait ${formatCents(target)}.`
-      )
+    setSolutionShown(true)
+    setHint(null)
+    if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n, solutionShown: true })
+    if (ttsEnabled) speak(`Regarde : voici une façon de faire ${formatCents(target)}.`)
+    // Laisse l'élève voir sa réponse ~2 s, puis compose une solution valide.
+    revealTimer.current = setTimeout(() => {
+      setWorkspace(greedyCoins(target, availableDenoms))
+    }, 2000)
+  }
+
+  const handleValidate = () => {
+    const studentResult = { total, workspace, target }
+
+    if (!hasTarget) {
+      setValidated(true)
+      if (onValidate) onValidate({ ...studentResult, correct: null })
+      if (ttsEnabled) speak(`Total : ${formatCents(total)}`)
+      return
+    }
+
+    const n = attempts + 1
+    setAttempts(n)
+
+    if (total === target) {
+      setValidated(true)
+      setHint(null)
+      if (onValidate) onValidate({ ...studentResult, correct: true, attempts: n })
+      if (ttsEnabled) speak('Bravo, bonne réponse !')
+      return
+    }
+
+    if (!allowMultipleAttempts) {
+      setValidated(true)
+      if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n })
+      if (ttsEnabled) speak(`Pas tout à fait. Il fallait ${formatCents(target)}.`)
+      return
+    }
+
+    const msg = buildHint()
+    setHint(msg)
+    if (ttsEnabled) speak(msg)
+
+    if (showSolutionAfterAttempts > 0 && n >= showSolutionAfterAttempts) {
+      revealSolution(n, studentResult)
     }
   }
 
-  const isCorrect = hasTarget ? total === target : null
+  // Après révélation, `workspace` contient la solution : on ne doit pas afficher « correct ».
+  const isCorrect = !hasTarget ? null : solutionShown ? false : total === target
 
   // Feedback temps réel : écart au montant visé (aide à l'estimation pour les
   // élèves en difficulté, comme voir grossir une pile de vraies pièces).
@@ -265,6 +342,15 @@ export default function Money({ config = {}, onValidate }) {
             </div>
           )}
 
+          {hint && !validated && (
+            <div className="mt-3 p-4 rounded-xl bg-amber-50 border border-amber-300">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl" aria-hidden="true">💡</span>
+                <p className="font-semibold text-amber-800 text-sm flex-1" aria-live="polite">{hint}</p>
+              </div>
+            </div>
+          )}
+
           {!validated && (
             <button
               onClick={handleValidate}
@@ -286,7 +372,8 @@ export default function Money({ config = {}, onValidate }) {
               }`}
             >
               {isCorrect === true && `✓ Correct ! Total = ${formatCents(total)}`}
-              {isCorrect === false && `Total : ${formatCents(total)} — Attendu : ${formatCents(target)}`}
+              {solutionShown && `Voici une façon de faire ${formatCents(target)} — il en existe d'autres !`}
+              {isCorrect === false && !solutionShown && `Total : ${formatCents(total)} — Attendu : ${formatCents(target)}`}
               {isCorrect === null && `Total : ${formatCents(total)}`}
             </div>
           )}
