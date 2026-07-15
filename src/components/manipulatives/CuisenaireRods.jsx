@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useAccessibility } from '../../contexts/AccessibilityContext.jsx'
 
 const RODS = [
@@ -75,15 +75,40 @@ function RodShape({ rod, height, showUnits }) {
   )
 }
 
+/** Décomposition gloutonne : les plus grandes réglettes d'abord (max 10). */
+function greedyRods(target) {
+  const out = []
+  let rest = target
+  while (rest > 0) {
+    const v = Math.min(10, rest)
+    out.push(v)
+    rest -= v
+  }
+  return out
+}
+
 export default function CuisenaireRods({ config = {}, onValidate }) {
   const { focusMode, ttsEnabled, speak } = useAccessibility()
-  const { targetNumber, showCounter = true, showUnits: showUnitsInit = false } = config
+  const {
+    targetNumber,
+    showCounter = true,
+    showUnits: showUnitsInit = false,
+    allowMultipleAttempts = true,
+    showSolutionAfterAttempts = 2,
+  } = config
 
   const [workspace, setWorkspace] = useState([])
   const [validated, setValidated] = useState(false)
   const [showUnits, setShowUnits] = useState(showUnitsInit)
+  const [attempts, setAttempts] = useState(0)
+  const [hint, setHint] = useState(null)
+  const [solutionShown, setSolutionShown] = useState(false)
+  const revealTimer = useRef(null)
+
+  useEffect(() => () => clearTimeout(revealTimer.current), [])
 
   const total = workspace.reduce((sum, v) => sum + v, 0)
+  const hasTarget = targetNumber !== undefined && targetNumber !== null
 
   const addRod = (value) => {
     if (validated) return
@@ -95,23 +120,63 @@ export default function CuisenaireRods({ config = {}, onValidate }) {
     setWorkspace((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const handleValidate = () => {
+  const buildHint = () => {
+    const diff = targetNumber - total
+    if (diff > 0) return `Ton total fait ${total}. Il te manque ${diff} pour atteindre ${targetNumber}.`
+    return `Ton total fait ${total}. C'est ${-diff} de trop.`
+  }
+
+  const revealSolution = (n, studentResult) => {
     setValidated(true)
-    const correct = targetNumber !== undefined ? total === targetNumber : null
-    const result = { total, workspace, correct, targetNumber }
-    if (onValidate) onValidate(result)
-    if (ttsEnabled) {
-      speak(
-        correct === null
-          ? `Total : ${total}`
-          : correct
-          ? 'Bonne réponse !'
-          : `Pas tout à fait. La cible était ${targetNumber}.`
-      )
+    setSolutionShown(true)
+    setHint(null)
+    if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n, solutionShown: true })
+    if (ttsEnabled) speak(`Regarde : voici une façon de faire ${targetNumber}.`)
+    // Laisse l'élève voir sa réponse ~2 s, puis compose une solution valide.
+    revealTimer.current = setTimeout(() => {
+      setWorkspace(greedyRods(targetNumber))
+    }, 2000)
+  }
+
+  const handleValidate = () => {
+    const studentResult = { total, workspace, targetNumber }
+
+    if (!hasTarget) {
+      setValidated(true)
+      if (onValidate) onValidate({ ...studentResult, correct: null })
+      if (ttsEnabled) speak(`Total : ${total}`)
+      return
+    }
+
+    const n = attempts + 1
+    setAttempts(n)
+
+    if (total === targetNumber) {
+      setValidated(true)
+      setHint(null)
+      if (onValidate) onValidate({ ...studentResult, correct: true, attempts: n })
+      if (ttsEnabled) speak('Bravo, bonne réponse !')
+      return
+    }
+
+    if (!allowMultipleAttempts) {
+      setValidated(true)
+      if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n })
+      if (ttsEnabled) speak(`Pas tout à fait. La cible était ${targetNumber}.`)
+      return
+    }
+
+    const msg = buildHint()
+    setHint(msg)
+    if (ttsEnabled) speak(msg)
+
+    if (showSolutionAfterAttempts > 0 && n >= showSolutionAfterAttempts) {
+      revealSolution(n, studentResult)
     }
   }
 
-  const isCorrect = targetNumber !== undefined ? total === targetNumber : null
+  // Après révélation, `workspace` contient la solution : on ne doit pas afficher « correct ».
+  const isCorrect = !hasTarget ? null : solutionShown ? false : total === targetNumber
 
   return (
     <div>
@@ -213,6 +278,15 @@ export default function CuisenaireRods({ config = {}, onValidate }) {
             })}
           </div>
 
+          {hint && !validated && (
+            <div className="mt-3 p-4 rounded-xl bg-amber-50 border border-amber-300">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl" aria-hidden="true">💡</span>
+                <p className="font-semibold text-amber-800 text-sm flex-1" aria-live="polite">{hint}</p>
+              </div>
+            </div>
+          )}
+
           {!validated && (
             <button
               onClick={handleValidate}
@@ -234,7 +308,8 @@ export default function CuisenaireRods({ config = {}, onValidate }) {
               }`}
             >
               {isCorrect === true && `✓ Correct ! Total = ${total}`}
-              {isCorrect === false && `Total : ${total} — Cible : ${targetNumber}`}
+              {solutionShown && `Voici une façon de faire ${targetNumber} — il en existe d'autres !`}
+              {isCorrect === false && !solutionShown && `Total : ${total} — Cible : ${targetNumber}`}
               {isCorrect === null && `Total : ${total}`}
             </div>
           )}
