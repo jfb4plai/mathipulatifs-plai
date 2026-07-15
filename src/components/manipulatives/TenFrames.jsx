@@ -43,7 +43,7 @@ export default function TenFrames({ config = {}, onValidate }) {
   const buildHint = () => {
     const diff = targetNumber - count
     if (diff > 0) return `Tu as rempli ${count} cercle${count > 1 ? 's' : ''}. Il t'en manque ${diff}.`
-    return `Tu as rempli ${count} cercles. C'est ${-diff} de trop.`
+    return `Tu as rempli ${count} cercle${count > 1 ? 's' : ''}. C'est ${-diff} de trop.`
   }
 
   const revealSolution = (n, studentResult) => {
@@ -164,7 +164,7 @@ export default function TenFrames({ config = {}, onValidate }) {
     <div>
       {/* Header : cible + compteur */}
       <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-        {targetNumber !== undefined ? (
+        {hasTarget ? (
           <span className="text-lg font-bold text-blue-700 bg-blue-50 px-4 py-2 rounded-xl border border-blue-200">
             Cible : {targetNumber}
           </span>
@@ -172,7 +172,7 @@ export default function TenFrames({ config = {}, onValidate }) {
         {showCounter && (
           <span
             className={`text-lg font-bold px-4 py-2 rounded-xl border transition-colors ${
-              targetNumber !== undefined && count === targetNumber
+              hasTarget && count === targetNumber
                 ? 'bg-green-50 text-green-700 border-green-200'
                 : 'bg-gray-50 text-gray-700 border-gray-200'
             }`}

@@ -71,6 +71,15 @@ const ENCOURAGEMENTS = [
   'Bien joué ! Tu es sur la bonne voie ! 🚀',
 ]
 
+// Quand un manipulable révèle la solution (après N échecs), il appelle
+// onValidate immédiatement — pour que la session soit enregistrée même si
+// l'élève quitte la page pendant l'animation — mais l'animation elle-même
+// (pause + recalage lent) continue de se jouer après cet appel. Sans délai
+// ici, un exercice en Mode CPA changerait d'écran (phase pictural) avant que
+// l'élève ait pu voir la révélation. 4,5 s couvre le cas le plus long
+// (Horloge : pause 2,5 s + recalage animé 2 s).
+const REVEAL_ANIMATION_MS = 4500
+
 function ManipulativeComponent({ manipulative, config, onValidate }) {
   if (manipulative === 'base10') return <Base10Blocks config={config} onValidate={onValidate} />
   if (manipulative === 'droite-numerique') return <NumberLine config={config} onValidate={onValidate} />
@@ -158,13 +167,23 @@ export default function StudentView() {
     const duree = Math.round((Date.now() - startTime) / 1000)
     setManipResult({ ...result, duree })
 
-    if (exercise?.config?.cpaMode) {
-      // Enter CPA pictural phase after concret
-      setCpaPhase('pictural')
+    const advance = async () => {
+      if (exercise?.config?.cpaMode) {
+        // Enter CPA pictural phase after concret
+        setCpaPhase('pictural')
+      } else {
+        setValidated(true)
+        if (ttsEnabled) speak(encouragement)
+        await saveSession(result, duree)
+      }
+    }
+
+    if (result.solutionShown) {
+      // Laisse l'animation de révélation du manipulable se jouer avant de
+      // changer d'écran.
+      setTimeout(advance, REVEAL_ANIMATION_MS)
     } else {
-      setValidated(true)
-      if (ttsEnabled) speak(encouragement)
-      await saveSession(result, duree)
+      await advance()
     }
   }
 
