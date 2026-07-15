@@ -129,7 +129,7 @@ export default function Base10Blocks({ config = {}, onValidate }) {
       setIsCorrect(true)
       setGuidedFeedback(null)
       if (ttsEnabled) speak('Bravo, c\'est correct !')
-      if (onValidate) onValidate({ total, centaines, dizaines, unites, correct: true })
+      if (onValidate) onValidate({ total, centaines, dizaines, unites, correct: true, revealMs: 0 })
       return
     }
 
@@ -140,7 +140,7 @@ export default function Base10Blocks({ config = {}, onValidate }) {
     const maxAtt = showSolutionAfterAttempts > 0 ? showSolutionAfterAttempts : null
     if (maxAtt && newAttempts >= maxAtt) {
       setShowSolution(true)
-      if (onValidate) onValidate({ total, centaines, dizaines, unites, correct: false, attempts: newAttempts })
+      if (onValidate) onValidate({ total, centaines, dizaines, unites, correct: false, attempts: newAttempts, revealMs: 0 })
     }
   }
 

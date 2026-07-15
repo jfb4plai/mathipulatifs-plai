@@ -73,7 +73,7 @@ export default function HundredChart({ config = {}, onValidate }) {
   const revealSolution = (n, studentResult) => {
     setValidated(true)
     setSolutionShown(true)
-    if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n, solutionShown: true })
+    if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n, solutionShown: true, revealMs: 2000 })
     if (ttsEnabled) speak(`Regarde : voici les multiples de ${multipleOf}.`)
     // Laisse l'élève voir l'indice ~2 s, puis colorie la bonne réponse.
     revealTimer.current = setTimeout(() => {
@@ -107,14 +107,14 @@ export default function HundredChart({ config = {}, onValidate }) {
     if (correct) {
       setValidated(true)
       setHint(null)
-      if (onValidate) onValidate({ ...studentResult, correct: true, attempts: n })
+      if (onValidate) onValidate({ ...studentResult, correct: true, attempts: n, revealMs: 0 })
       if (ttsEnabled) speak('Bravo, bonne réponse !')
       return
     }
 
     if (!allowMultipleAttempts) {
       setValidated(true)
-      if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n })
+      if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n, revealMs: 0 })
       if (ttsEnabled) speak('Pas tout à fait.')
       return
     }

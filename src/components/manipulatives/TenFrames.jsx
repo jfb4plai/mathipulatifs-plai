@@ -50,7 +50,7 @@ export default function TenFrames({ config = {}, onValidate }) {
   const revealSolution = (n, studentResult) => {
     setValidated(true)
     setSolutionShown(true)
-    if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n, solutionShown: true })
+    if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n, solutionShown: true, revealMs: 2000 })
     if (ttsEnabled) speak(`Regarde : voici ${targetNumber}.`)
     // Laisse l'élève voir l'indice ~2 s, puis affiche la bonne réponse.
     revealTimer.current = setTimeout(() => {
@@ -77,7 +77,7 @@ export default function TenFrames({ config = {}, onValidate }) {
     if (count === targetNumber) {
       setValidated(true)
       setHint(null)
-      if (onValidate) onValidate({ ...studentResult, correct: true, attempts: n })
+      if (onValidate) onValidate({ ...studentResult, correct: true, attempts: n, revealMs: 0 })
       if (ttsEnabled) speak('Bravo, bonne réponse !')
       return
     }
@@ -85,7 +85,7 @@ export default function TenFrames({ config = {}, onValidate }) {
     // Réponse fausse.
     if (!allowMultipleAttempts) {
       setValidated(true)
-      if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n })
+      if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n, revealMs: 0 })
       if (ttsEnabled) speak(`Pas tout à fait. La cible était ${targetNumber}.`)
       return
     }

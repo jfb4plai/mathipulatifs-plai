@@ -236,7 +236,7 @@ export default function Clock({ config = {}, onValidate }) {
         setFeedback(true)
         setPrecise(wasPrecise)
         setHint(null)
-        if (onValidate) onValidate({ placed: { h: readHours, m: readMinutes }, target, correct: true, attempts: attempts + 1 })
+        if (onValidate) onValidate({ placed: { h: readHours, m: readMinutes }, target, correct: true, attempts: attempts + 1, revealMs: wasPrecise ? 0 : 4500 })
         if (ttsEnabled) speak(wasPrecise ? `Parfait ! Il est exactement ${formatTime(target.h, target.m)}.` : 'Bravo ! Regarde bien ta réponse.')
         if (!wasPrecise) {
           correctionTimer.current = setTimeout(() => {
@@ -253,7 +253,7 @@ export default function Clock({ config = {}, onValidate }) {
         if (!allowMultipleAttempts) {
           setValidated(true)
           setFeedback(false)
-          if (onValidate) onValidate({ placed: { h: readHours, m: readMinutes }, target, correct: false, attempts: n })
+          if (onValidate) onValidate({ placed: { h: readHours, m: readMinutes }, target, correct: false, attempts: n, revealMs: 0 })
           if (ttsEnabled) speak(`Pas tout à fait. Il fallait ${formatTime(target.h, target.m)}.`)
           return
         }
@@ -294,7 +294,7 @@ export default function Clock({ config = {}, onValidate }) {
     setValidated(true)
     setFeedback('solution')
     setSolutionShown(true)
-    if (onValidate) onValidate({ placed: { h: readHours, m: readMinutes }, target, correct: false, attempts: n, solutionShown: true })
+    if (onValidate) onValidate({ placed: { h: readHours, m: readMinutes }, target, correct: false, attempts: n, solutionShown: true, revealMs: 4000 })
     if (ttsEnabled) speak(`Regarde : voici ${formatTime(target.h, target.m)}.`)
     // Laisse l'élève voir l'indice ~2 s, puis fait glisser lentement les
     // aiguilles vers la position exacte.

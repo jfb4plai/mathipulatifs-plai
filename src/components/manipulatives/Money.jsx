@@ -162,7 +162,7 @@ export default function Money({ config = {}, onValidate }) {
   const revealSolution = (n, studentResult) => {
     setValidated(true)
     setSolutionShown(true)
-    if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n, solutionShown: true })
+    if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n, solutionShown: true, revealMs: 2000 })
     if (ttsEnabled) speak(`Regarde : voici une façon de faire ${formatCents(target)}.`)
     // Laisse l'élève voir l'indice ~2 s, puis compose une solution valide.
     revealTimer.current = setTimeout(() => {
@@ -188,14 +188,14 @@ export default function Money({ config = {}, onValidate }) {
     if (total === target) {
       setValidated(true)
       setHint(null)
-      if (onValidate) onValidate({ ...studentResult, correct: true, attempts: n })
+      if (onValidate) onValidate({ ...studentResult, correct: true, attempts: n, revealMs: 0 })
       if (ttsEnabled) speak('Bravo, bonne réponse !')
       return
     }
 
     if (!allowMultipleAttempts) {
       setValidated(true)
-      if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n })
+      if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n, revealMs: 0 })
       if (ttsEnabled) speak(`Pas tout à fait. Il fallait ${formatCents(target)}.`)
       return
     }

@@ -136,7 +136,7 @@ export default function NumberLine({ config = {}, onValidate }) {
     setValidated(true)
     setSolutionShown(true)
     setFeedback(false)
-    if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n, solutionShown: true })
+    if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n, solutionShown: true, revealMs: 4000 })
     if (ttsEnabled) speak(`Regarde : ${target} est ici.`)
     // Laisse l'élève voir l'indice ~2 s, puis fait glisser lentement le jeton.
     revealTimer.current = setTimeout(() => {
@@ -165,7 +165,7 @@ export default function NumberLine({ config = {}, onValidate }) {
       setValidated(true)
       setFeedback(true)
       setHint(null)
-      if (onValidate) onValidate({ ...studentResult, correct: true, attempts: n })
+      if (onValidate) onValidate({ ...studentResult, correct: true, attempts: n, revealMs: 0 })
       if (ttsEnabled) speak('Bravo, c\'est correct !')
       return
     }
@@ -173,7 +173,7 @@ export default function NumberLine({ config = {}, onValidate }) {
     if (!allowMultipleAttempts) {
       setValidated(true)
       setFeedback(false)
-      if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n })
+      if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n, revealMs: 0 })
       if (ttsEnabled) speak(`Pas tout à fait. La réponse était ${target}.`)
       return
     }
