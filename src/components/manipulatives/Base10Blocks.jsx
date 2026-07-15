@@ -86,7 +86,7 @@ export default function Base10Blocks({ config = {}, onValidate }) {
     maxNumber = 999,
     showCounter = true,
     allowMultipleAttempts = true,
-    showSolutionAfterAttempts = 3,
+    showSolutionAfterAttempts = 2,
   } = config
   const { dyslexicFont, largeText, focusMode, ttsEnabled, speak } = useAccessibility()
 

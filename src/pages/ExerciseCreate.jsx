@@ -109,7 +109,7 @@ export default function ExerciseCreate() {
   const [b10Target, setB10Target] = useState('')
   const [b10Max, setB10Max] = useState(999)
   const [b10MultipleAttempts, setB10MultipleAttempts] = useState(true)
-  const [b10ShowSolutionAfter, setB10ShowSolutionAfter] = useState(3)
+  const [b10ShowSolutionAfter, setB10ShowSolutionAfter] = useState(2)
 
   // Droite numérique config
   const [dnMin, setDnMin] = useState(0)
@@ -195,6 +195,8 @@ export default function ExerciseCreate() {
         if (data.manipulative === 'base10') {
           setB10Target(cfg.targetNumber !== undefined ? String(cfg.targetNumber) : '')
           setB10Max(cfg.maxNumber || 999)
+          setB10MultipleAttempts(cfg.allowMultipleAttempts ?? true)
+          setB10ShowSolutionAfter(cfg.showSolutionAfterAttempts ?? 2)
         }
         if (data.manipulative === 'droite-numerique') {
           setDnMin(cfg.min ?? 0)
