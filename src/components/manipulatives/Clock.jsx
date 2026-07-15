@@ -278,7 +278,7 @@ export default function Clock({ config = {}, onValidate }) {
       const ok = h === fixedTime.h && m === fixedTime.m
       setValidated(true)
       setFeedback(ok)
-      if (onValidate) onValidate({ readH: h, readM: m, actual: fixedTime, correct: ok })
+      if (onValidate) onValidate({ readH: h, readM: m, actual: fixedTime, correct: ok, revealMs: 0 })
       if (ttsEnabled) speak(ok ? 'Bravo, c\'est correct !' : 'Pas tout à fait.')
       return
     }
