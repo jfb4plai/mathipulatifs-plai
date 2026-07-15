@@ -71,14 +71,57 @@ const ENCOURAGEMENTS = [
   'Bien joué ! Tu es sur la bonne voie ! 🚀',
 ]
 
-// Quand un manipulable révèle la solution (après N échecs), il appelle
-// onValidate immédiatement — pour que la session soit enregistrée même si
-// l'élève quitte la page pendant l'animation — mais l'animation elle-même
-// (pause + recalage lent) continue de se jouer après cet appel. Sans délai
-// ici, un exercice en Mode CPA changerait d'écran (phase pictural) avant que
-// l'élève ait pu voir la révélation. 4,5 s couvre le cas le plus long
-// (Horloge : pause 2,5 s + recalage animé 2 s).
-const REVEAL_ANIMATION_MS = 4500
+// Textes des étapes Pictural / Abstrait, adaptés par manipulable — une
+// notation « mathématique » générique (2 + 3 + 5 = 10) n'a de sens que pour
+// les manipulables de décomposition/composition de nombres. Horloge et
+// Droite numérique n'ont pas d'équivalent « équation ».
+const CPA_TEXTS = {
+  base10: {
+    pictural: 'Dessine les blocs (centaines, dizaines, unités) que tu as utilisés.',
+    abstraitLabel: 'Écris le nombre en chiffres, ou sa décomposition.',
+    abstraitPlaceholder: 'Ex : 234 ou 200 + 30 + 4',
+  },
+  'droite-numerique': {
+    pictural: 'Dessine une droite numérique et indique où tu as placé le nombre.',
+    abstraitLabel: 'Écris le nombre que tu as placé.',
+    abstraitPlaceholder: 'Ex : 13',
+  },
+  fractions: {
+    pictural: 'Dessine les barres de fractions que tu as coloriées.',
+    abstraitLabel: 'Écris la fraction en chiffres.',
+    abstraitPlaceholder: 'Ex : 3/4',
+  },
+  cuisenaire: {
+    pictural: 'Dessine les réglettes que tu as utilisées, avec leur longueur.',
+    abstraitLabel: "Écris l'addition correspondante.",
+    abstraitPlaceholder: 'Ex : 5 + 3 + 2 = 10',
+  },
+  cadres10: {
+    pictural: 'Dessine le(s) cadre(s) à 10 avec les cercles remplis.',
+    abstraitLabel: 'Écris le nombre représenté.',
+    abstraitPlaceholder: 'Ex : 7',
+  },
+  grille100: {
+    pictural: 'Dessine la grille des 100 et colorie les nombres trouvés.',
+    abstraitLabel: 'Écris la liste des nombres trouvés.',
+    abstraitPlaceholder: 'Ex : 4, 8, 12, 16',
+  },
+  horloge: {
+    pictural: 'Dessine un cadran et place les aiguilles comme tu l\'as fait.',
+    abstraitLabel: "Écris l'heure sous forme chiffrée.",
+    abstraitPlaceholder: 'Ex : 2h30',
+  },
+  monnaie: {
+    pictural: 'Dessine les pièces et billets que tu as utilisés.',
+    abstraitLabel: 'Écris le calcul de la somme.',
+    abstraitPlaceholder: 'Ex : 2€ + 1€ + 0,50€ = 3,50€',
+  },
+}
+const DEFAULT_CPA_TEXT = {
+  pictural: 'Dessine ce que tu as réalisé avec le manipulable.',
+  abstraitLabel: 'Traduis ce que tu as fait en chiffres et symboles.',
+  abstraitPlaceholder: 'Ex : 2 + 3 + 5 = 10',
+}
 
 function ManipulativeComponent({ manipulative, config, onValidate }) {
   if (manipulative === 'base10') return <Base10Blocks config={config} onValidate={onValidate} />
@@ -167,24 +210,19 @@ export default function StudentView() {
     const duree = Math.round((Date.now() - startTime) / 1000)
     setManipResult({ ...result, duree })
 
-    const advance = async () => {
-      if (exercise?.config?.cpaMode) {
-        // Enter CPA pictural phase after concret
-        setCpaPhase('pictural')
-      } else {
-        setValidated(true)
-        if (ttsEnabled) speak(encouragement)
-        await saveSession(result, duree)
-      }
+    if (!exercise?.config?.cpaMode) {
+      setValidated(true)
+      if (ttsEnabled) speak(encouragement)
+      await saveSession(result, duree)
     }
+    // En mode CPA : on ne bascule jamais automatiquement vers l'étape
+    // Pictural — le manipulable reste affiché avec son propre feedback
+    // (bandeau, animation de recalage…) jusqu'à ce que l'élève clique sur
+    // « Continuer ». Voir le bouton sous ManipulativeComponent ci-dessous.
+  }
 
-    if (result.solutionShown) {
-      // Laisse l'animation de révélation du manipulable se jouer avant de
-      // changer d'écran.
-      setTimeout(advance, REVEAL_ANIMATION_MS)
-    } else {
-      await advance()
-    }
+  const handleCpaContinuer = () => {
+    setCpaPhase('pictural')
   }
 
   const handleCpaPictural = () => {
@@ -298,6 +336,16 @@ export default function StudentView() {
             config={exercise.config || {}}
             onValidate={handleValidate}
           />
+          {exercise.config?.cpaMode && manipResult && (
+            <div className="mt-4 text-center border-t border-gray-100 pt-4">
+              <button
+                onClick={handleCpaContinuer}
+                className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 px-6 rounded-xl transition-colors min-h-[44px]"
+              >
+                Continuer vers l'étape Pictural →
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -309,9 +357,9 @@ export default function StudentView() {
           </div>
           <div className="text-center py-6">
             <div className="text-5xl mb-4">✏️</div>
-            <h2 className="text-xl font-bold text-gray-800 mb-2">Dessine ce que tu as construit</h2>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Dessine ce que tu as réalisé</h2>
             <p className="text-gray-600 text-sm mb-6">
-              Sur ton cahier ou ta feuille, fais un schéma de ce que tu viens de créer avec le manipulable.
+              {(CPA_TEXTS[exercise.manipulative] || DEFAULT_CPA_TEXT).pictural}
             </p>
             <button
               onClick={handleCpaPictural}
@@ -331,15 +379,15 @@ export default function StudentView() {
           </div>
           <div className="text-center py-4">
             <div className="text-5xl mb-4">🔢</div>
-            <h2 className="text-xl font-bold text-gray-800 mb-2">Écris la notation mathématique</h2>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Traduis ce que tu as fait</h2>
             <p className="text-gray-600 text-sm mb-6">
-              Traduis ce que tu as construit en chiffres et symboles mathématiques.
+              {(CPA_TEXTS[exercise.manipulative] || DEFAULT_CPA_TEXT).abstraitLabel}
             </p>
             <input
               type="text"
               value={cpaAbstractInput}
               onChange={(e) => setCpaAbstractInput(e.target.value)}
-              placeholder="Ex : 2 + 3 + 5 = 10"
+              placeholder={(CPA_TEXTS[exercise.manipulative] || DEFAULT_CPA_TEXT).abstraitPlaceholder}
               className="w-full max-w-sm mx-auto block px-4 py-3 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 text-center text-lg font-mono mb-6"
               autoFocus
               onKeyDown={(e) => e.key === 'Enter' && cpaAbstractInput.trim() && handleCpaAbstrait()}
