@@ -95,6 +95,84 @@ function RetryCycleFields({ allow, setAllow, after, setAfter, focusMode, inputCl
   )
 }
 
+/** Édition d'un item généré — un champ de valeur cible différent par
+ *  manipulable, réutilisant le même style que les champs mono-item. */
+function ItemEditor({ manipulative, monMode, item, onChange }) {
+  const set = (patch) => onChange({ ...item, ...patch })
+  const smallInput = 'px-2 py-1.5 border border-gray-300 rounded-lg text-center text-sm'
+
+  if (manipulative === 'horloge') {
+    return (
+      <div className="flex items-center gap-2">
+        <input
+          type="number" min={1} max={12} value={item.targetTime?.h ?? 1}
+          onChange={(e) => set({ targetTime: { ...item.targetTime, h: parseInt(e.target.value) || 1 } })}
+          className={`w-16 ${smallInput}`}
+        />
+        <span className="text-gray-400 text-sm">h</span>
+        <input
+          type="number" min={0} max={59} value={item.targetTime?.m ?? 0}
+          onChange={(e) => set({ targetTime: { ...item.targetTime, m: parseInt(e.target.value) || 0 } })}
+          className={`w-16 ${smallInput}`}
+        />
+      </div>
+    )
+  }
+  if (manipulative === 'monnaie') {
+    if (monMode === 'rendu') {
+      return (
+        <div className="flex items-center gap-2">
+          <input
+            type="number" step="0.01" min={0} value={(item.price ?? 0) / 100}
+            onChange={(e) => set({ price: Math.round(parseFloat(e.target.value || 0) * 100) })}
+            className={`w-20 ${smallInput}`}
+          />
+          <span className="text-gray-400 text-xs">€ prix →</span>
+          <input
+            type="number" step="0.01" min={0} value={(item.paid ?? 0) / 100}
+            onChange={(e) => set({ paid: Math.round(parseFloat(e.target.value || 0) * 100) })}
+            className={`w-20 ${smallInput}`}
+          />
+          <span className="text-gray-400 text-xs">€ payé</span>
+        </div>
+      )
+    }
+    return (
+      <input
+        type="number" step="0.01" min={0} value={(item.targetAmount ?? 0) / 100}
+        onChange={(e) => set({ targetAmount: Math.round(parseFloat(e.target.value || 0) * 100) })}
+        className={`w-24 ${smallInput}`}
+      />
+    )
+  }
+  if (manipulative === 'droite-numerique') {
+    return (
+      <input
+        type="number" value={item.targetValue ?? 0}
+        onChange={(e) => set({ targetValue: parseInt(e.target.value) || 0 })}
+        className={`w-20 ${smallInput}`}
+      />
+    )
+  }
+  if (manipulative === 'grille100') {
+    return (
+      <input
+        type="number" min={2} max={20} value={item.multipleOf ?? 2}
+        onChange={(e) => set({ multipleOf: parseInt(e.target.value) || 2 })}
+        className={`w-20 ${smallInput}`}
+      />
+    )
+  }
+  // base10, cadres10, cuisenaire : un nombre cible
+  return (
+    <input
+      type="number" min={1} value={item.targetNumber ?? 1}
+      onChange={(e) => set({ targetNumber: parseInt(e.target.value) || 1 })}
+      className={`w-20 ${smallInput}`}
+    />
+  )
+}
+
 export default function ExerciseCreate() {
   const navigate = useNavigate()
   const { id: editId } = useParams() // présent uniquement en mode édition
@@ -794,18 +872,20 @@ export default function ExerciseCreate() {
                 </div>
                 {dnMode === 'placer' && (
                   <>
-                    <div>
-                      <label className={labelClass}>Nombre à placer (optionnel)</label>
-                      <input
-                        type="number"
-                        value={dnTargetValue}
-                        onChange={(e) => setDnTargetValue(e.target.value)}
-                        min={dnMin}
-                        max={dnMax}
-                        placeholder="Ex : 13 (laisser vide pour un tirage au hasard)"
-                        className={inputClass}
-                      />
-                    </div>
+                    {!seriesActive && (
+                      <div>
+                        <label className={labelClass}>Nombre à placer (optionnel)</label>
+                        <input
+                          type="number"
+                          value={dnTargetValue}
+                          onChange={(e) => setDnTargetValue(e.target.value)}
+                          min={dnMin}
+                          max={dnMax}
+                          placeholder="Ex : 13 (laisser vide pour un tirage au hasard)"
+                          className={inputClass}
+                        />
+                      </div>
+                    )}
                     <RetryCycleFields
                       allow={dnMultipleAttempts}
                       setAllow={setDnMultipleAttempts}
@@ -853,18 +933,20 @@ export default function ExerciseCreate() {
 
             {selectedManip === 'cuisenaire' && (
               <div className="space-y-4">
-                <div>
-                  <label className={labelClass}>Total cible (optionnel)</label>
-                  <input
-                    type="number"
-                    value={cuiTarget}
-                    onChange={(e) => setCuiTarget(e.target.value)}
-                    min={1}
-                    max={100}
-                    placeholder="Ex : 10 (laisser vide pour exploration libre)"
-                    className={inputClass}
-                  />
-                </div>
+                {!seriesActive && (
+                  <div>
+                    <label className={labelClass}>Total cible (optionnel)</label>
+                    <input
+                      type="number"
+                      value={cuiTarget}
+                      onChange={(e) => setCuiTarget(e.target.value)}
+                      min={1}
+                      max={100}
+                      placeholder="Ex : 10 (laisser vide pour exploration libre)"
+                      className={inputClass}
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="flex items-start gap-3 cursor-pointer group">
                     <input
@@ -885,7 +967,7 @@ export default function ExerciseCreate() {
                     </div>
                   </label>
                 </div>
-                {cuiTarget !== '' && (
+                {(cuiTarget !== '' || seriesActive) && (
                   <RetryCycleFields
                     allow={cuiMultipleAttempts}
                     setAllow={setCuiMultipleAttempts}
@@ -908,18 +990,20 @@ export default function ExerciseCreate() {
                     <option value={2}>2 cadres (0–20)</option>
                   </select>
                 </div>
-                <div>
-                  <label className={labelClass}>Nombre cible (optionnel)</label>
-                  <input
-                    type="number"
-                    value={tenTarget}
-                    onChange={(e) => setTenTarget(e.target.value)}
-                    min={1}
-                    max={tenFrames === 2 ? 20 : 10}
-                    placeholder={`Ex : 7 (max ${tenFrames === 2 ? 20 : 10})`}
-                    className={inputClass}
-                  />
-                </div>
+                {!seriesActive && (
+                  <div>
+                    <label className={labelClass}>Nombre cible (optionnel)</label>
+                    <input
+                      type="number"
+                      value={tenTarget}
+                      onChange={(e) => setTenTarget(e.target.value)}
+                      min={1}
+                      max={tenFrames === 2 ? 20 : 10}
+                      placeholder={`Ex : 7 (max ${tenFrames === 2 ? 20 : 10})`}
+                      className={inputClass}
+                    />
+                  </div>
+                )}
                 <div>
                   <label className={labelClass}>Couleur des compteurs</label>
                   <select value={tenColor} onChange={(e) => setTenColor(e.target.value)} className={inputClass}>
@@ -928,7 +1012,7 @@ export default function ExerciseCreate() {
                     <option value="yellow">🟡 Jaune</option>
                   </select>
                 </div>
-                {tenTarget !== '' && (
+                {(tenTarget !== '' || seriesActive) && (
                   <RetryCycleFields
                     allow={tenMultipleAttempts}
                     setAllow={setTenMultipleAttempts}
@@ -960,17 +1044,19 @@ export default function ExerciseCreate() {
                 </div>
                 {chartMode === 'multiples' && (
                   <>
-                    <div>
-                      <label className={labelClass}>Multiples de quel nombre ?</label>
-                      <input
-                        type="number"
-                        value={chartMultiple}
-                        onChange={(e) => setChartMultiple(e.target.value)}
-                        min={2}
-                        max={20}
-                        className={inputClass}
-                      />
-                    </div>
+                    {!seriesActive && (
+                      <div>
+                        <label className={labelClass}>Multiples de quel nombre ?</label>
+                        <input
+                          type="number"
+                          value={chartMultiple}
+                          onChange={(e) => setChartMultiple(e.target.value)}
+                          min={2}
+                          max={20}
+                          className={inputClass}
+                        />
+                      </div>
+                    )}
                     <RetryCycleFields
                       allow={chartMultipleAttempts}
                       setAllow={setChartMultipleAttempts}
@@ -1004,7 +1090,7 @@ export default function ExerciseCreate() {
                     <option value={5}>5 minutes</option>
                   </select>
                 </div>
-                {clkMode === 'placer' && (
+                {clkMode === 'placer' && !seriesActive && (
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className={labelClass}>Heure cible — heures</label>
@@ -1053,7 +1139,7 @@ export default function ExerciseCreate() {
                     <option value="rendu">Rendre la monnaie</option>
                   </select>
                 </div>
-                {monMode === 'composer' && (
+                {monMode === 'composer' && !seriesActive && (
                   <div>
                     <label className={labelClass}>Montant cible en € (optionnel)</label>
                     <input
@@ -1067,7 +1153,7 @@ export default function ExerciseCreate() {
                     />
                   </div>
                 )}
-                {monMode === 'rendu' && (
+                {monMode === 'rendu' && !seriesActive && (
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className={labelClass}>Prix de l'article (€)</label>
@@ -1103,7 +1189,7 @@ export default function ExerciseCreate() {
                     <option value={5000}>50 € max</option>
                   </select>
                 </div>
-                {(monMode === 'rendu' || monTarget !== '') && (
+                {(monMode === 'rendu' || monTarget !== '' || seriesActive) && (
                   <RetryCycleFields
                     allow={monMultipleAttempts}
                     setAllow={setMonMultipleAttempts}
@@ -1117,26 +1203,111 @@ export default function ExerciseCreate() {
               </div>
             )}
 
+            {/* Série (Lot B) */}
+            {seriesEligible && (
+              <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+                <label className={labelClass}>Série d'exercices</label>
+                <select value={seriesMode} onChange={(e) => setSeriesMode(e.target.value)} className={inputClass}>
+                  <option value="mono">Un seul item (par défaut)</option>
+                  <option value="fixe">Série fixe (je choisis et je valide chaque item)</option>
+                  <option value="aleatoire">Série aléatoire (différente à chaque élève)</option>
+                </select>
+                {!focusMode && seriesActive && (
+                  <p className="text-xs text-gray-500">
+                    L'élève reçoit {itemCount} item{itemCount > 1 ? 's' : ''} d'affilée au lieu d'un
+                    seul, avec un score final — le mode CPA n'est alors plus disponible.
+                  </p>
+                )}
+
+                {seriesActive && (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={labelClass}>Nombre d'items</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={10}
+                          value={itemCount}
+                          onChange={(e) => setItemCount(Math.min(10, Math.max(1, parseInt(e.target.value) || 1)))}
+                          className={inputClass}
+                        />
+                      </div>
+                      {!(selectedManip === 'monnaie' && monMode === 'rendu') && (
+                        <div>
+                          <label className={labelClass}>Niveau de difficulté</label>
+                          <select value={difficulty || ''} onChange={(e) => setDifficulty(e.target.value)} className={inputClass}>
+                            {(KIND_PROGRESSION[selectedManip] || []).map((k) => (
+                              <option key={k} value={k}>{KIND_LABELS[k]}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
+                    {seriesMode === 'fixe' && (
+                      <div className="space-y-3">
+                        <button
+                          type="button"
+                          onClick={handleGenerateItems}
+                          className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2.5 px-4 rounded-xl transition-colors min-h-[44px] text-sm"
+                        >
+                          {generatedItems.length > 0 ? 'Régénérer les items' : `Générer les ${itemCount} items`}
+                        </button>
+                        {generatedItems.length > 0 && !focusMode && (
+                          <p className="text-xs text-gray-400">
+                            Régénérer efface les valeurs modifiées ci-dessous.
+                          </p>
+                        )}
+                        {generatedItems.length > 0 && (
+                          <div className="space-y-2">
+                            {generatedItems.map((item, i) => (
+                              <div key={i} className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                                <span className="text-xs font-bold text-gray-400 w-6">#{i + 1}</span>
+                                <span className="text-xs text-gray-500 flex-1">{KIND_LABELS[item.kind] || item.kind}</span>
+                                <ItemEditor
+                                  manipulative={selectedManip}
+                                  monMode={monMode}
+                                  item={item}
+                                  onChange={(updated) => updateGeneratedItem(i, updated)}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
             {/* CPA mode */}
             <div className="mt-4 pt-4 border-t border-gray-100">
-              <label className="flex items-start gap-3 cursor-pointer group">
-                <input
-                  type="checkbox"
-                  checked={cpaMode}
-                  onChange={(e) => setCpaMode(e.target.checked)}
-                  className="mt-1 w-5 h-5 accent-blue-500 cursor-pointer"
-                />
-                <div>
-                  <div className="font-semibold text-gray-700 text-sm group-hover:text-blue-600 transition-colors">
-                    Mode CPA guidé
-                  </div>
-                  {!focusMode && (
-                    <div className="text-xs text-gray-500 mt-0.5">
-                      Après la manipulation, guide l'élève vers la représentation picturale (dessin) puis abstraite (notation).
+              {seriesActive ? (
+                <p className="text-xs text-gray-400">
+                  Mode CPA non disponible en série — repassez sur « Un seul item » ci-dessus pour l'activer.
+                </p>
+              ) : (
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={cpaMode}
+                    onChange={(e) => setCpaMode(e.target.checked)}
+                    className="mt-1 w-5 h-5 accent-blue-500 cursor-pointer"
+                  />
+                  <div>
+                    <div className="font-semibold text-gray-700 text-sm group-hover:text-blue-600 transition-colors">
+                      Mode CPA guidé
                     </div>
-                  )}
-                </div>
-              </label>
+                    {!focusMode && (
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        Après la manipulation, guide l'élève vers la représentation picturale (dessin) puis abstraite (notation).
+                      </div>
+                    )}
+                  </div>
+                </label>
+              )}
             </div>
           </div>
         )}
