@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAccessibility } from '../contexts/AccessibilityContext.jsx'
+import { KIND_LABELS } from '../lib/seriesGenerators.js'
 
 const manipulativeLabels = {
   base10: { label: 'Blocs base 10', color: 'bg-blue-100 text-blue-700' },
@@ -129,6 +130,7 @@ export default function Dashboard() {
   const [shareDesc, setShareDesc] = useState('')
   const [sharing, setSharing] = useState(false)
   const [sharedIds, setSharedIds] = useState(new Set()) // exercise ids already in gallery
+  const [expandedSessions, setExpandedSessions] = useState(new Set())
 
   const navigate = useNavigate()
   const { dyslexicFont, largeText, focusMode } = useAccessibility()
@@ -240,6 +242,15 @@ export default function Dashboard() {
       setShareNiveau('tous')
       setShareDesc('')
     }
+  }
+
+  const toggleSessionDetail = (sessionId) => {
+    setExpandedSessions((prev) => {
+      const next = new Set(prev)
+      if (next.has(sessionId)) next.delete(sessionId)
+      else next.add(sessionId)
+      return next
+    })
   }
 
   const handleShare = async (ex) => {
@@ -490,27 +501,62 @@ export default function Dashboard() {
                                 </tr>
                               </thead>
                               <tbody>
-                                {sessions.map((s) => (
-                                  <tr key={s.id} className="border-b border-gray-100 last:border-0">
-                                    <td className="py-2 pr-4 text-gray-800 font-medium">
-                                      {s.prenom_eleve || <span className="text-gray-400 italic">Anonyme</span>}
-                                    </td>
-                                    <td className="py-2 pr-4">
-                                      {s.correct === true && <span className="text-green-600 font-bold">✓ Correct</span>}
-                                      {s.correct === false && <span className="text-amber-600 font-bold">✗ À revoir</span>}
-                                      {s.correct === null && <span className="text-gray-400">Libre</span>}
-                                    </td>
-                                    <td className="py-2 pr-4 text-gray-500">
-                                      {s.duree_secondes != null ? `${s.duree_secondes}s` : '—'}
-                                    </td>
-                                    <td className="py-2 text-gray-400 text-xs">
-                                      {new Date(s.created_at).toLocaleDateString('fr-BE', {
-                                        day: '2-digit', month: '2-digit', year: '2-digit',
-                                        hour: '2-digit', minute: '2-digit',
-                                      })}
-                                    </td>
-                                  </tr>
-                                ))}
+                                {sessions.map((s) => {
+                                  const isSeriesSession = s.reponse && typeof s.reponse === 'object' && Array.isArray(s.reponse.items)
+                                  const isExpanded = expandedSessions.has(s.id)
+                                  return (
+                                    <Fragment key={s.id}>
+                                      <tr className="border-b border-gray-100 last:border-0">
+                                        <td className="py-2 pr-4 text-gray-800 font-medium">
+                                          {s.prenom_eleve || <span className="text-gray-400 italic">Anonyme</span>}
+                                        </td>
+                                        <td className="py-2 pr-4">
+                                          {isSeriesSession ? (
+                                            <button
+                                              onClick={() => toggleSessionDetail(s.id)}
+                                              className="font-bold text-blue-600 hover:underline"
+                                            >
+                                              {s.reponse.score} / {s.reponse.total} {isExpanded ? '▲' : '▼'}
+                                            </button>
+                                          ) : (
+                                            <>
+                                              {s.correct === true && <span className="text-green-600 font-bold">✓ Correct</span>}
+                                              {s.correct === false && <span className="text-amber-600 font-bold">✗ À revoir</span>}
+                                              {s.correct === null && <span className="text-gray-400">Libre</span>}
+                                            </>
+                                          )}
+                                        </td>
+                                        <td className="py-2 pr-4 text-gray-500">
+                                          {s.duree_secondes != null ? `${s.duree_secondes}s` : '—'}
+                                        </td>
+                                        <td className="py-2 text-gray-400 text-xs">
+                                          {new Date(s.created_at).toLocaleDateString('fr-BE', {
+                                            day: '2-digit', month: '2-digit', year: '2-digit',
+                                            hour: '2-digit', minute: '2-digit',
+                                          })}
+                                        </td>
+                                      </tr>
+                                      {isSeriesSession && isExpanded && (
+                                        <tr>
+                                          <td colSpan={4} className="pb-3">
+                                            <div className="bg-white border border-gray-200 rounded-lg p-3 text-xs space-y-1">
+                                              {s.reponse.items.map((it, idx) => (
+                                                <div key={idx} className="flex items-center justify-between gap-2">
+                                                  <span className="text-gray-500">
+                                                    #{idx + 1} — {KIND_LABELS[it.kind] || it.kind || '—'}
+                                                  </span>
+                                                  <span className={it.correct ? 'text-green-600 font-bold' : 'text-amber-600 font-bold'}>
+                                                    {it.correct ? '✓' : '✗'}
+                                                  </span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      )}
+                                    </Fragment>
+                                  )
+                                })}
                               </tbody>
                             </table>
                           </div>
