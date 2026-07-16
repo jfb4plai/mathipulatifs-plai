@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAccessibility } from '../contexts/AccessibilityContext.jsx'
+import { KIND_PROGRESSION, KIND_LABELS, generateSeries } from '../lib/seriesGenerators.js'
 
 const manipulatives = [
   {
@@ -105,6 +106,13 @@ export default function ExerciseCreate() {
   const [selectedManip, setSelectedManip] = useState(null)
   const [cpaMode, setCpaMode] = useState(false)
 
+  // Série (Lot B)
+  const [seriesMode, setSeriesMode] = useState('mono') // 'mono' | 'fixe' | 'aleatoire'
+  const [itemCount, setItemCount] = useState(5)
+  const [difficulty, setDifficulty] = useState(null)
+  const [generatedItems, setGeneratedItems] = useState([])
+  const seriesActive = seriesMode !== 'mono'
+
   // Base10 config
   const [b10Target, setB10Target] = useState('')
   const [b10Max, setB10Max] = useState(999)
@@ -161,6 +169,14 @@ export default function ExerciseCreate() {
   const [monMultipleAttempts, setMonMultipleAttempts] = useState(true)
   const [monShowSolutionAfter, setMonShowSolutionAfter] = useState(2)
 
+  const seriesEligible = (() => {
+    if (selectedManip === 'fractions') return false
+    if (selectedManip === 'droite-numerique') return dnMode === 'placer'
+    if (selectedManip === 'grille100') return chartMode === 'multiples'
+    if (selectedManip === 'horloge') return clkMode === 'placer'
+    return Boolean(selectedManip)
+  })()
+
   const [loading, setLoading] = useState(false)
   const [loadingExercise, setLoadingExercise] = useState(isEditMode)
   const [error, setError] = useState(null)
@@ -190,6 +206,10 @@ export default function ExerciseCreate() {
         setConsigne(data.consigne || '')
         setSelectedManip(data.manipulative)
         setCpaMode(cfg.cpaMode || false)
+        setSeriesMode(cfg.seriesMode || 'mono')
+        setItemCount(cfg.itemCount || 5)
+        setDifficulty(cfg.difficulty || null)
+        setGeneratedItems(cfg.items || [])
 
         // Pré-remplissage selon le manipulable
         if (data.manipulative === 'base10') {
@@ -259,15 +279,35 @@ export default function ExerciseCreate() {
     loadExercise()
   }, [editId, isEditMode])
 
+  // Réinitialise la difficulté par défaut (la plus facile) quand le
+  // manipulable change, pour éviter une valeur orpheline d'un autre
+  // manipulable.
+  useEffect(() => {
+    if (!selectedManip) return
+    const progression = KIND_PROGRESSION[selectedManip]
+    if (progression && progression.length > 0) setDifficulty((prev) => prev || progression[0])
+  }, [selectedManip])
+
   const toggleFracDenominator = (d) => {
     setFracDenominators((prev) =>
       prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort((a, b) => a - b)
     )
   }
 
+  const handleGenerateItems = () => {
+    setGeneratedItems(
+      generateSeries(selectedManip, difficulty, itemCount, { mode: selectedManip === 'monnaie' ? monMode : undefined })
+    )
+  }
+
+  const updateGeneratedItem = (index, updated) => {
+    setGeneratedItems((prev) => prev.map((it, i) => (i === index ? updated : it)))
+  }
+
   const buildConfig = () => {
+    let base = {}
     if (selectedManip === 'base10') {
-      return {
+      base = {
         targetNumber: b10Target !== '' ? parseInt(b10Target) : undefined,
         maxNumber: parseInt(b10Max),
         showCounter: true,
@@ -275,9 +315,8 @@ export default function ExerciseCreate() {
         showSolutionAfterAttempts: b10MultipleAttempts ? b10ShowSolutionAfter : 1,
         cpaMode,
       }
-    }
-    if (selectedManip === 'droite-numerique') {
-      return {
+    } else if (selectedManip === 'droite-numerique') {
+      base = {
         min: parseInt(dnMin),
         max: parseInt(dnMax),
         step: parseInt(dnStep),
@@ -288,16 +327,14 @@ export default function ExerciseCreate() {
         showSolutionAfterAttempts: dnMultipleAttempts ? dnShowSolutionAfter : 1,
         cpaMode,
       }
-    }
-    if (selectedManip === 'fractions') {
-      return {
+    } else if (selectedManip === 'fractions') {
+      base = {
         denominators: fracDenominators,
         mode: fracMode,
         cpaMode,
       }
-    }
-    if (selectedManip === 'cuisenaire') {
-      return {
+    } else if (selectedManip === 'cuisenaire') {
+      base = {
         targetNumber: cuiTarget !== '' ? parseInt(cuiTarget) : undefined,
         showCounter: true,
         showUnits: cuiShowUnits,
@@ -305,9 +342,8 @@ export default function ExerciseCreate() {
         showSolutionAfterAttempts: cuiMultipleAttempts ? cuiShowSolutionAfter : 1,
         cpaMode,
       }
-    }
-    if (selectedManip === 'cadres10') {
-      return {
+    } else if (selectedManip === 'cadres10') {
+      base = {
         frames: parseInt(tenFrames),
         targetNumber: tenTarget !== '' ? parseInt(tenTarget) : undefined,
         counterColor: tenColor,
@@ -316,9 +352,8 @@ export default function ExerciseCreate() {
         showSolutionAfterAttempts: tenMultipleAttempts ? tenShowSolutionAfter : 1,
         cpaMode,
       }
-    }
-    if (selectedManip === 'grille100') {
-      return {
+    } else if (selectedManip === 'grille100') {
+      base = {
         startAt: parseInt(chartStart),
         mode: chartMode,
         multipleOf: chartMode === 'multiples' ? parseInt(chartMultiple) : undefined,
@@ -326,9 +361,8 @@ export default function ExerciseCreate() {
         showSolutionAfterAttempts: chartMultipleAttempts ? chartShowSolutionAfter : 1,
         cpaMode,
       }
-    }
-    if (selectedManip === 'horloge') {
-      return {
+    } else if (selectedManip === 'horloge') {
+      base = {
         mode: clkMode,
         granularity: parseInt(clkGranularity),
         targetTime: clkMode === 'placer' ? { h: parseInt(clkTargetH) || 3, m: parseInt(clkTargetM) || 0 } : undefined,
@@ -336,9 +370,8 @@ export default function ExerciseCreate() {
         showSolutionAfterAttempts: clkMultipleAttempts ? clkShowSolutionAfter : 1,
         cpaMode,
       }
-    }
-    if (selectedManip === 'monnaie') {
-      return {
+    } else if (selectedManip === 'monnaie') {
+      base = {
         mode: monMode,
         targetAmount: monMode === 'composer' && monTarget !== '' ? Math.round(parseFloat(monTarget) * 100) : undefined,
         price: monMode === 'rendu' ? Math.round(parseFloat(monPrice || 0) * 100) : undefined,
@@ -348,8 +381,21 @@ export default function ExerciseCreate() {
         showSolutionAfterAttempts: monMultipleAttempts ? monShowSolutionAfter : 1,
         cpaMode,
       }
+    } else {
+      return {}
     }
-    return {}
+
+    if (seriesActive) {
+      return {
+        ...base,
+        cpaMode: false, // le mode CPA est désactivé dès qu'une série est active
+        seriesMode,
+        itemCount,
+        difficulty,
+        items: seriesMode === 'fixe' ? generatedItems : undefined,
+      }
+    }
+    return base
   }
 
   const handleSubmit = async (e) => {
