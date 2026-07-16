@@ -10,6 +10,7 @@ import TenFrames from '../components/manipulatives/TenFrames.jsx'
 import HundredChart from '../components/manipulatives/HundredChart.jsx'
 import Clock from '../components/manipulatives/Clock.jsx'
 import Money from '../components/manipulatives/Money.jsx'
+import { generateSeries } from '../lib/seriesGenerators.js'
 
 // Demo configs for tokens starting with "demo-"
 const DEMO_CONFIGS = {
@@ -154,6 +155,12 @@ export default function StudentView() {
   const [cpaAbstractInput, setCpaAbstractInput] = useState('')
   const [manipResult, setManipResult] = useState(null)
 
+  // Série (Lot B)
+  const [seriesItems, setSeriesItems] = useState(null) // null = pas de série ; sinon liste d'overrides
+  const [currentItemIndex, setCurrentItemIndex] = useState(0)
+  const [seriesResults, setSeriesResults] = useState([])
+  const [seriesDone, setSeriesDone] = useState(false)
+
   const isDemo = token?.startsWith('demo-')
   const fontClass = dyslexicFont ? 'font-dyslexic' : ''
   const textClass = largeText ? 'text-xl' : 'text-base'
@@ -194,13 +201,35 @@ export default function StudentView() {
       })
   }, [token, isDemo])
 
-  const saveSession = async (result, duree) => {
+  // Résout les items de la série une fois l'exercice chargé : lus tels quels
+  // en mode fixe, générés côté client (une graine différente par élève) en
+  // mode aléatoire.
+  useEffect(() => {
+    if (!exercise) return
+    const mode = exercise.config?.seriesMode
+    if (!mode || mode === 'mono') return
+    if (mode === 'fixe') {
+      setSeriesItems(exercise.config.items || [])
+    } else {
+      setSeriesItems(
+        generateSeries(exercise.manipulative, exercise.config.difficulty, exercise.config.itemCount, exercise.config)
+      )
+    }
+  }, [exercise])
+
+  const isSeries = Array.isArray(seriesItems)
+  const seriesItemCount = seriesItems?.length ?? 1
+  const currentConfig = isSeries
+    ? { ...(exercise?.config || {}), ...seriesItems[currentItemIndex] }
+    : (exercise?.config || {})
+
+  const saveSession = async (result, duree, correctOverride) => {
     if (!isDemo && supabase && exercise?.id) {
       await supabase.from('mathip_sessions').insert({
         exercise_id: exercise.id,
         prenom_eleve: prenom || null,
         reponse: result,
-        correct: result?.correct ?? null,
+        correct: correctOverride !== undefined ? correctOverride : (result?.correct ?? null),
         duree_secondes: duree,
       })
     }
@@ -208,8 +237,31 @@ export default function StudentView() {
 
   const handleValidate = async (result) => {
     const duree = Math.round((Date.now() - startTime) / 1000)
-    setManipResult({ ...result, duree })
 
+    if (isSeries) {
+      const itemResult = {
+        kind: seriesItems[currentItemIndex]?.kind,
+        correct: result.correct,
+        attempts: result.attempts,
+        solutionShown: result.solutionShown || false,
+      }
+      const updatedResults = [...seriesResults, itemResult]
+      setSeriesResults(updatedResults)
+
+      // N'avance jamais avant la fin de l'animation du manipulable (revealMs),
+      // avec un plancher pour laisser le temps de voir un succès immédiat.
+      const waitMs = Math.max(result.revealMs || 0, 1200)
+      setTimeout(() => {
+        if (currentItemIndex + 1 < seriesItemCount) {
+          setCurrentItemIndex((i) => i + 1)
+        } else {
+          finishSeries(updatedResults, duree)
+        }
+      }, waitMs)
+      return
+    }
+
+    setManipResult({ ...result, duree })
     if (!exercise?.config?.cpaMode) {
       setValidated(true)
       if (ttsEnabled) speak(encouragement)
@@ -219,6 +271,15 @@ export default function StudentView() {
     // Pictural — le manipulable reste affiché avec son propre feedback
     // (bandeau, animation de recalage…) jusqu'à ce que l'élève clique sur
     // « Continuer ». Voir le bouton sous ManipulativeComponent ci-dessous.
+  }
+
+  const finishSeries = async (results, duree) => {
+    const score = results.filter((r) => r.correct === true).length
+    const total = results.length
+    setSeriesDone(true)
+    setValidated(true)
+    if (ttsEnabled) speak(`Série terminée : ${score} sur ${total}.`)
+    await saveSession({ score, total, items: results }, duree, score === total)
   }
 
   const handleCpaContinuer = () => {
@@ -319,8 +380,17 @@ export default function StudentView() {
         </div>
       )}
 
+      {/* Progression de série */}
+      {isSeries && prenomConfirmed && !seriesDone && (
+        <div className="mb-4 text-center">
+          <span className="text-sm font-bold text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+            Item {currentItemIndex + 1} / {seriesItemCount}
+          </span>
+        </div>
+      )}
+
       {/* Manipulative — phase Concret */}
-      {prenomConfirmed && cpaPhase === 'concret' && (
+      {prenomConfirmed && cpaPhase === 'concret' && !(isSeries && seriesDone) && (
         <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
           {!focusMode && !isDemo && prenom && (
             <p className="text-sm text-gray-400 mb-4">Bonjour {prenom} 👋</p>
@@ -332,8 +402,9 @@ export default function StudentView() {
             </div>
           )}
           <ManipulativeComponent
+            key={isSeries ? currentItemIndex : 'single'}
             manipulative={exercise.manipulative}
-            config={exercise.config || {}}
+            config={currentConfig}
             onValidate={handleValidate}
           />
           {exercise.config?.cpaMode && manipResult && (
@@ -404,7 +475,26 @@ export default function StudentView() {
       )}
 
       {/* Post-validation feedback */}
-      {validated && (
+      {validated && isSeries && (
+        <div className="mt-6 bg-green-50 border border-green-200 rounded-2xl p-6 text-center">
+          <div className="text-4xl mb-2">🎉</div>
+          <p className="text-xl font-bold text-green-700 mb-2">
+            Série terminée : {seriesResults.filter((r) => r.correct === true).length} / {seriesResults.length}
+          </p>
+          {!focusMode && (
+            <p className="text-green-600 text-sm">
+              Ton enseignant·e pourra voir le détail de tes réponses dans le tableau de bord.
+            </p>
+          )}
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 text-sm text-green-600 hover:text-green-800 border border-green-300 hover:border-green-500 py-2 px-4 rounded-xl hover:bg-green-100 transition-colors min-h-[44px]"
+          >
+            Recommencer
+          </button>
+        </div>
+      )}
+      {validated && !isSeries && (
         <div className="mt-6 bg-green-50 border border-green-200 rounded-2xl p-6 text-center">
           <div className="text-4xl mb-2">🎉</div>
           <p className="text-xl font-bold text-green-700 mb-2">{encouragement}</p>
