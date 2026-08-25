@@ -5,6 +5,7 @@ import { supabase } from './lib/supabase.js'
 import AccessibilityBar from './components/AccessibilityBar.jsx'
 import Home from './pages/Home.jsx'
 import Auth from './pages/Auth.jsx'
+import ResetPassword from './pages/ResetPassword.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import ExerciseCreate from './pages/ExerciseCreate.jsx'
 import StudentView from './pages/StudentView.jsx'
@@ -53,6 +54,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/connexion" element={<Auth />} />
+            <Route path="/reinitialiser-mot-de-passe" element={<ResetPassword />} />
             <Route
               path="/tableau-de-bord"
               element={

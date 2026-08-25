@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase.js'
 import { useAccessibility } from '../contexts/AccessibilityContext.jsx'
 
 export default function Auth() {
-  const [mode, setMode] = useState('login') // 'login' | 'register'
+  const [mode, setMode] = useState('login') // 'login' | 'register' | 'reset'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [nom, setNom] = useState('')
@@ -46,6 +46,12 @@ export default function Auth() {
         const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
         if (authError) throw authError
         if (data.session) navigate('/tableau-de-bord', { replace: true })
+      } else if (mode === 'reset') {
+        const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reinitialiser-mot-de-passe`,
+        })
+        if (authError) throw authError
+        setSuccess('Email envoyé ! Vérifiez votre boîte mail pour créer un nouveau mot de passe.')
       } else {
         // Register
         const { data, error: authError } = await supabase.auth.signUp({ email, password })
@@ -83,20 +89,29 @@ export default function Auth() {
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
           {/* Mode toggle */}
-          <div className="flex rounded-xl overflow-hidden border border-gray-200 mb-6">
-            <button
-              onClick={() => { setMode('login'); setError(null); setSuccess(null) }}
-              className={`flex-1 py-2.5 font-semibold text-sm transition-colors min-h-[44px] ${mode === 'login' ? 'bg-blue-500 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
-            >
-              Connexion
-            </button>
-            <button
-              onClick={() => { setMode('register'); setError(null); setSuccess(null) }}
-              className={`flex-1 py-2.5 font-semibold text-sm transition-colors min-h-[44px] ${mode === 'register' ? 'bg-blue-500 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
-            >
-              Créer un compte
-            </button>
-          </div>
+          {mode !== 'reset' && (
+            <div className="flex rounded-xl overflow-hidden border border-gray-200 mb-6">
+              <button
+                onClick={() => { setMode('login'); setError(null); setSuccess(null) }}
+                className={`flex-1 py-2.5 font-semibold text-sm transition-colors min-h-[44px] ${mode === 'login' ? 'bg-blue-500 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+              >
+                Connexion
+              </button>
+              <button
+                onClick={() => { setMode('register'); setError(null); setSuccess(null) }}
+                className={`flex-1 py-2.5 font-semibold text-sm transition-colors min-h-[44px] ${mode === 'register' ? 'bg-blue-500 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+              >
+                Créer un compte
+              </button>
+            </div>
+          )}
+
+          {mode === 'reset' && (
+            <div className="mb-6">
+              <h2 className="text-lg font-bold text-gray-800">Mot de passe oublié</h2>
+              <p className="text-sm text-gray-500 mt-1">Entrez votre e-mail — vous recevrez un lien pour créer un nouveau mot de passe.</p>
+            </div>
+          )}
 
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
@@ -162,19 +177,21 @@ export default function Auth() {
               />
             </div>
 
-            <div>
-              <label className={labelClass}>Mot de passe *</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-                placeholder="••••••••"
-                className={inputClass}
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              />
-            </div>
+            {mode !== 'reset' && (
+              <div>
+                <label className={labelClass}>Mot de passe *</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  placeholder="••••••••"
+                  className={inputClass}
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                />
+              </div>
+            )}
 
             <button
               type="submit"
@@ -185,9 +202,32 @@ export default function Auth() {
                 ? 'Chargement…'
                 : mode === 'login'
                 ? 'Se connecter'
+                : mode === 'reset'
+                ? 'Envoyer le lien'
                 : 'Créer mon compte'}
             </button>
           </form>
+
+          <div className="mt-4 text-center">
+            {mode === 'login' && (
+              <button
+                type="button"
+                onClick={() => { setMode('reset'); setError(null); setSuccess(null) }}
+                className="text-xs text-gray-400 hover:text-blue-500 transition-colors"
+              >
+                Mot de passe oublié ?
+              </button>
+            )}
+            {mode === 'reset' && (
+              <button
+                type="button"
+                onClick={() => { setMode('login'); setError(null); setSuccess(null) }}
+                className="text-xs text-gray-400 hover:text-blue-500 transition-colors"
+              >
+                ← Retour à la connexion
+              </button>
+            )}
+          </div>
         </div>
 
         {!focusMode && (
