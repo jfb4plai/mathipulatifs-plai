@@ -41,3 +41,7 @@ supabase/.temp
 
 # Claude Code worktrees
 .claude/worktrees/
+
+# Dependances et secrets (ajoute 2026-10-04)
+.env.*
+!.env*.example
