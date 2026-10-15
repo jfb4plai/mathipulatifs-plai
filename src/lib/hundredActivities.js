@@ -62,3 +62,33 @@ export function checkGap(start, target, answer) {
 export function describeOp(op) {
   return `${op.sign === '-' ? 'Retire' : 'Ajoute'} ${op.value}`
 }
+
+// --- Séquence étape par étape ---
+
+/** Nombre d'essais permis par étape avant de montrer la bonne case (Infinity = jamais). */
+export function stepAttemptLimit({ allowMultipleAttempts = true, showSolutionAfterAttempts = 2 } = {}) {
+  if (!allowMultipleAttempts) return 1
+  return showSolutionAfterAttempts > 0 ? showSolutionAfterAttempts : Infinity
+}
+
+export function stepHint(picked, expected) {
+  return picked > expected
+    ? 'Ta case est trop grande. Refais ce calcul.'
+    : 'Ta case est trop petite. Refais ce calcul.'
+}
+
+/** Statut d'une case confirmée : montrée à l'élève, trouvée après erreur, ou trouvée du premier coup. */
+export function stepStatus(tries, revealed) {
+  if (revealed) return 'revealed'
+  return tries.length > 1 ? 'retried' : 'ok'
+}
+
+/** Résumé enregistré pour l'enseignant. correct = aucune étape montrée à l'élève. */
+export function summarizeSteps(log) {
+  const solutionShown = log.some((s) => s.revealed)
+  return {
+    correct: !solutionShown,
+    solutionShown,
+    attempts: log.reduce((sum, s) => sum + s.tries.length, 0),
+  }
+}

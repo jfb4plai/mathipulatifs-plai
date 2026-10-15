@@ -234,6 +234,7 @@ export default function ExerciseCreate() {
   const [chartOps, setChartOps] = useState([{ sign: '+', value: '' }])
   const [chartTargetCell, setChartTargetCell] = useState('')
   const [chartArrows, setChartArrows] = useState(false)
+  const [chartStepByStep, setChartStepByStep] = useState(false)
 
   // Contrôle des activités « séquence » et « écart » (aperçu + blocage à l'enregistrement)
   const chartActivity = (() => {
@@ -357,6 +358,7 @@ export default function ExerciseCreate() {
           )
           setChartTargetCell(cfg.targetCell !== undefined ? String(cfg.targetCell) : '')
           setChartArrows(cfg.arrows || false)
+          setChartStepByStep(cfg.stepByStep || false)
         }
         if (data.manipulative === 'horloge') {
           setClkMode(cfg.mode || 'libre')
@@ -468,6 +470,7 @@ export default function ExerciseCreate() {
         ops: chartMode === 'sequence' ? chartOps.map((o) => ({ sign: o.sign, value: parseInt(o.value, 10) })) : undefined,
         targetCell: chartMode === 'ecart' ? parseInt(chartTargetCell, 10) : undefined,
         arrows: chartArrows,
+        stepByStep: chartMode === 'sequence' ? chartStepByStep : undefined,
         allowMultipleAttempts: chartMultipleAttempts,
         showSolutionAfterAttempts: chartMultipleAttempts ? chartShowSolutionAfter : 1,
         cpaMode,
@@ -1160,6 +1163,26 @@ export default function ExerciseCreate() {
                         Une étape ne peut pas faire sortir de la grille.
                       </p>
                     )}
+                    <label className="flex items-start gap-3 cursor-pointer group mt-3">
+                      <input
+                        type="checkbox"
+                        checked={chartStepByStep}
+                        onChange={(e) => setChartStepByStep(e.target.checked)}
+                        className="mt-1 w-5 h-5 accent-blue-500 cursor-pointer"
+                      />
+                      <div>
+                        <div className="font-semibold text-gray-700 text-sm group-hover:text-blue-600 transition-colors">
+                          Demander chaque étape
+                        </div>
+                        {!focusMode && (
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            L'élève clique la case obtenue après chaque opération, et chaque étape est contrôlée tout de suite.
+                            Le tableau de bord montre à quelle étape l'erreur apparaît. Si une étape reste fausse, la bonne case est montrée (en orange)
+                            et l'élève continue à partir d'elle. L'arrivée s'affiche en vert.
+                          </div>
+                        )}
+                      </div>
+                    </label>
                   </div>
                 )}
 

@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { useAccessibility } from '../../contexts/AccessibilityContext.jsx'
-import { runSequence, validateGapSetup, expectedGap, checkGap, describeOp } from '../../lib/hundredActivities.js'
+import {
+  runSequence, validateGapSetup, expectedGap, checkGap, describeOp,
+  stepAttemptLimit, stepHint, stepStatus, summarizeSteps,
+} from '../../lib/hundredActivities.js'
 
 const PALETTE = [
   { id: 'yellow', bg: '#F6E05E', border: '#B7791F', label: 'Jaune' },
@@ -80,6 +83,7 @@ export default function HundredChart({ config = {}, onValidate }) {
     ops = [],           // mode 'sequence' : [{ sign: '+' | '-', value }]
     targetCell,         // mode 'ecart' : case cible
     arrows = false,     // aménagement : flèches repères +10 / -10 / +1 / -1
+    stepByStep = false, // mode 'sequence' : l'élève marque la case de chaque étape
     allowMultipleAttempts = true,
     showSolutionAfterAttempts = 2,
   } = config
@@ -111,6 +115,11 @@ export default function HundredChart({ config = {}, onValidate }) {
   const [gapSign, setGapSign] = useState(null)      // ecart : '+' | '-'
   const [gapValue, setGapValue] = useState('')      // ecart : texte saisi
   const [outcome, setOutcome] = useState(null)      // 'correct' | 'wrong' | 'revealed'
+  const isStepMode = isSeq && stepByStep
+  const [stepIdx, setStepIdx] = useState(0)         // étape en cours (0-based)
+  const [stepTries, setStepTries] = useState([])    // cases proposées pour l'étape en cours
+  const [stepLog, setStepLog] = useState([])        // étapes terminées
+  const [confirmed, setConfirmed] = useState({})    // { [case]: { step, status } }
 
   const hasTarget = mode === 'multiples' && !!multipleOf
   const expectedMultiples = hasTarget ? numbers.filter((n) => n !== 0 && n % multipleOf === 0) : []
@@ -170,7 +179,65 @@ export default function HundredChart({ config = {}, onValidate }) {
     }, 2000)
   }
 
+  const handleStepValidate = () => {
+    if (picked == null) {
+      setHint("Clique d'abord sur la case obtenue.")
+      return
+    }
+    const expected = seqResult.path[stepIdx + 1]
+    const tries = [...stepTries, picked]
+    const limit = stepAttemptLimit({ allowMultipleAttempts, showSolutionAfterAttempts })
+    const found = picked === expected
+    const revealed = !found && tries.length >= limit
+
+    if (!found && !revealed) {
+      const msg = stepHint(picked, expected)
+      setStepTries(tries)
+      setPicked(null)
+      setHint(msg)
+      if (ttsEnabled) speak(msg)
+      return
+    }
+
+    // Étape terminée : trouvée, ou montrée à l'élève qui repart alors de la bonne case.
+    const entry = { step: stepIdx + 1, op: ops[stepIdx], expected, tries, revealed }
+    const log = [...stepLog, entry]
+    setStepLog(log)
+    setStepTries([])
+    setPicked(null)
+    setConfirmed((prev) => ({ ...prev, [expected]: { step: stepIdx + 1, status: stepStatus(tries, revealed) } }))
+
+    const isLast = stepIdx === ops.length - 1
+    if (!isLast) {
+      setStepIdx(stepIdx + 1)
+      const msg = revealed ? `La bonne case est ${expected}. On continue à partir d'ici.` : null
+      setHint(msg)
+      if (ttsEnabled) speak(msg || 'Bien. Étape suivante.')
+      return
+    }
+
+    const summary = summarizeSteps(log)
+    setValidated(true)
+    setHint(null)
+    setSolutionShown(summary.solutionShown)
+    setRevealApplied(true)
+    setOutcome(summary.correct ? 'correct' : 'revealed')
+    if (onValidate) {
+      onValidate({
+        mode, startCell, ops, stepByStep: true,
+        steps: log.map((e) => ({ step: e.step, op: e.op, expected: e.expected, tries: e.tries, revealed: e.revealed })),
+        expected: activityEnd,
+        correct: summary.correct,
+        attempts: summary.attempts,
+        solutionShown: summary.solutionShown,
+        revealMs: summary.solutionShown ? 1500 : 0,
+      })
+    }
+    if (ttsEnabled) speak(summary.correct ? 'Bravo, bonne réponse !' : 'Regarde les cases orange.')
+  }
+
   const handleActivityValidate = () => {
+    if (isStepMode) return handleStepValidate()
     let correct
     let studentResult
     let hintMsg
@@ -292,6 +359,17 @@ export default function HundredChart({ config = {}, onValidate }) {
   const getCellStyle = (n) => {
     if (isActivity) {
       if (n === startCell) return { backgroundColor: '#BEE3F8', borderColor: '#2C5282', borderWidth: 3, fontWeight: 'bold' }
+      if (isStepMode) {
+        const c = confirmed[n]
+        if (c) {
+          const isFinal = c.step === ops.length
+          if (c.status === 'revealed') return { backgroundColor: '#FBD38D', borderColor: '#C05621', borderWidth: 3, fontWeight: 'bold' }
+          if (isFinal) return { backgroundColor: '#68D391', borderColor: '#276749', borderWidth: 3, fontWeight: 'bold' }
+          return { backgroundColor: '#F6E05E', borderColor: '#B7791F', borderWidth: 3, fontWeight: 'bold' }
+        }
+        if (n === picked) return { backgroundColor: '#FEFCBF', borderColor: '#B7791F', borderWidth: 3, borderStyle: 'dashed', fontWeight: 'bold' }
+        return { backgroundColor: '#F7FAFC', borderColor: '#E2E8F0' }
+      }
       if (isGap && n === targetCell) return { backgroundColor: '#FBD38D', borderColor: '#C05621', borderWidth: 3, borderStyle: 'dashed', fontWeight: 'bold' }
       if (isSeq && n === picked) {
         const good = outcome === 'correct' || (outcome === 'revealed' && revealApplied)
@@ -343,7 +421,32 @@ export default function HundredChart({ config = {}, onValidate }) {
   return (
     <div>
       {/* Consigne des activités */}
-      {isSeq && (
+      {isStepMode && (
+        <div className="mb-3 p-4 bg-indigo-50 border border-indigo-200 rounded-xl text-indigo-900" style={{ fontSize: 16 }}>
+          <p className="font-bold mb-1">Pars de la case {startCell}.</p>
+          <ol className="pl-1 space-y-1" style={{ listStyle: 'none' }}>
+            {ops.map((op, i) => {
+              const done = stepLog[i]
+              const current = !validated && i === stepIdx
+              return (
+                <li key={i} style={{ fontWeight: current ? 700 : 400, opacity: !done && !current ? 0.55 : 1 }}>
+                  {done ? '✓ ' : current ? '→ ' : ''}
+                  {i + 1}. {describeOp(op)}.
+                  {done && <span className="font-bold"> Case {done.expected}</span>}
+                </li>
+              )
+            })}
+          </ol>
+          {!validated && (
+            <p className="mt-2 font-semibold">
+              {stepIdx === ops.length - 1
+                ? `Dernière étape : clique sur la case d'arrivée.`
+                : `Étape ${stepIdx + 1} sur ${ops.length} : clique sur la case obtenue.`}
+            </p>
+          )}
+        </div>
+      )}
+      {isSeq && !isStepMode && (
         <div className="mb-3 p-4 bg-indigo-50 border border-indigo-200 rounded-xl text-indigo-900" style={{ fontSize: 16 }}>
           <p className="font-bold mb-1">Pars de la case {startCell}.</p>
           <ol className="list-decimal pl-6 space-y-0.5">
@@ -423,11 +526,12 @@ export default function HundredChart({ config = {}, onValidate }) {
             onClick={() => toggleCell(n)}
             disabled={validated || isGap}
             role="gridcell"
-            aria-label={`${n}${colored[n] ? ', colorié' : ''}${isActivity && n === startCell ? ', départ' : ''}${isGap && n === targetCell ? ', cible' : ''}${isSeq && n === picked ? ', choisie' : ''}`}
+            aria-label={`${n}${colored[n] ? ', colorié' : ''}${isActivity && n === startCell ? ', départ' : ''}${isGap && n === targetCell ? ', cible' : ''}${isSeq && n === picked ? ', choisie' : ''}${isStepMode && confirmed[n] ? `, étape ${confirmed[n].step}${confirmed[n].status === 'revealed' ? ', montrée' : ''}` : ''}`}
             style={{
               height: 34,
               borderRadius: 4,
               border: `1px solid`,
+              position: 'relative',
               fontSize: isActivity ? 13 : 11,
               fontWeight: colored[n] ? 'bold' : 'normal',
               color: '#2D3748',
@@ -437,6 +541,11 @@ export default function HundredChart({ config = {}, onValidate }) {
             }}
           >
             {n}
+            {isStepMode && confirmed[n] && (
+              <span aria-hidden="true" style={{ position: 'absolute', top: 1, left: 3, fontSize: 11, fontWeight: 700, color: '#2D3748' }}>
+                {confirmed[n].step}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -494,7 +603,7 @@ export default function HundredChart({ config = {}, onValidate }) {
           onClick={handleValidate}
           className="w-full py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl transition-colors min-h-[44px]"
         >
-          Valider
+          {isStepMode ? (stepIdx === ops.length - 1 ? "Valider l'arrivée" : "Valider l'étape") : 'Valider'}
         </button>
       )}
 
@@ -506,7 +615,7 @@ export default function HundredChart({ config = {}, onValidate }) {
           style={{ fontSize: 16 }}
         >
           {outcome === 'correct' && (isSeq ? `✓ Correct ! Tu arrives à ${activityEnd}.` : `✓ Correct ! De ${startCell} à ${targetCell}, ${expGap.sign === '+' ? 'on ajoute' : 'on retire'} ${expGap.value}.`)}
-          {outcome === 'revealed' && (isSeq ? `Regarde : l'arrivée est ${activityEnd}.` : `Regarde : ${expGap.sign === '+' ? 'on ajoute' : 'on retire'} ${expGap.value}.`)}
+          {outcome === 'revealed' && (isStepMode ? `Tu as terminé : l'arrivée est ${activityEnd}. Les cases orange t'ont été montrées.` : isSeq ? `Regarde : l'arrivée est ${activityEnd}.` : `Regarde : ${expGap.sign === '+' ? 'on ajoute' : 'on retire'} ${expGap.value}.`)}
           {outcome === 'wrong' && 'Pas tout à fait.'}
         </div>
       )}

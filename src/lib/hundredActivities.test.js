@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { runSequence, validateGapSetup, checkGap, expectedGap, gridBounds } from './hundredActivities.js'
+import { runSequence, validateGapSetup, checkGap, expectedGap, gridBounds, stepAttemptLimit, stepHint, stepStatus, summarizeSteps } from './hundredActivities.js'
 
 test('bornes selon le départ de la grille', () => {
   assert.deepEqual(gridBounds(1), { min: 1, max: 100 })
@@ -49,4 +49,26 @@ test('écart : réponse', () => {
   assert.equal(checkGap(34, 61, { sign: '+', value: null }).problem, 'valeur-absente')
   // signe ET valeur faux : le signe est signalé en premier
   assert.equal(checkGap(34, 61, { sign: '-', value: 5 }).problem, 'signe')
+})
+
+test("étapes : limite d'essais", () => {
+  assert.equal(stepAttemptLimit({ allowMultipleAttempts: true, showSolutionAfterAttempts: 3 }), 3)
+  assert.equal(stepAttemptLimit({ allowMultipleAttempts: true, showSolutionAfterAttempts: 0 }), Infinity)
+  assert.equal(stepAttemptLimit({ allowMultipleAttempts: false, showSolutionAfterAttempts: 1 }), 1)
+  assert.equal(stepAttemptLimit({}), 2)
+})
+
+test('étapes : indice et statut', () => {
+  assert.match(stepHint(70, 68), /trop grande/)
+  assert.match(stepHint(60, 68), /trop petite/)
+  assert.equal(stepStatus([68], false), 'ok')
+  assert.equal(stepStatus([66, 68], false), 'retried')
+  assert.equal(stepStatus([66, 67], true), 'revealed')
+})
+
+test('étapes : résumé enregistré', () => {
+  const ok = summarizeSteps([{ tries: [68], revealed: false }, { tries: [66, 71], revealed: false }])
+  assert.deepEqual(ok, { correct: true, solutionShown: false, attempts: 3 })
+  const shown = summarizeSteps([{ tries: [68], revealed: false }, { tries: [66, 67], revealed: true }])
+  assert.deepEqual(shown, { correct: false, solutionShown: true, attempts: 3 })
 })

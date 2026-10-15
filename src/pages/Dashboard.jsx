@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAccessibility } from '../contexts/AccessibilityContext.jsx'
 import { KIND_LABELS } from '../lib/seriesGenerators.js'
+import { describeOp } from '../lib/hundredActivities.js'
 
 const manipulativeLabels = {
   base10: { label: 'Blocs base 10', color: 'bg-blue-100 text-blue-700' },
@@ -504,6 +505,7 @@ export default function Dashboard() {
                                 {sessions.map((s) => {
                                   const isSeriesSession = s.reponse && typeof s.reponse === 'object' && Array.isArray(s.reponse.items)
                                   const isExpanded = expandedSessions.has(s.id)
+                                  const hasSteps = s.reponse && typeof s.reponse === 'object' && Array.isArray(s.reponse.steps)
                                   return (
                                     <Fragment key={s.id}>
                                       <tr className="border-b border-gray-100 last:border-0">
@@ -523,6 +525,14 @@ export default function Dashboard() {
                                               {s.correct === true && <span className="text-green-600 font-bold">✓ Correct</span>}
                                               {s.correct === false && <span className="text-amber-600 font-bold">✗ À revoir</span>}
                                               {s.correct === null && <span className="text-gray-400">Libre</span>}
+                                              {hasSteps && (
+                                                <button
+                                                  onClick={() => toggleSessionDetail(s.id)}
+                                                  className="ml-2 text-xs font-bold text-blue-600 hover:underline"
+                                                >
+                                                  Étapes {isExpanded ? '▲' : '▼'}
+                                                </button>
+                                              )}
                                             </>
                                           )}
                                         </td>
@@ -536,6 +546,29 @@ export default function Dashboard() {
                                           })}
                                         </td>
                                       </tr>
+                                      {hasSteps && isExpanded && (
+                                        <tr>
+                                          <td colSpan={4} className="pb-3">
+                                            <div className="bg-white border border-gray-200 rounded-lg p-3 text-xs space-y-1">
+                                              <div className="text-gray-500 mb-1">Départ : case {s.reponse.startCell}</div>
+                                              {s.reponse.steps.map((st) => {
+                                                const firstTry = st.tries.length === 1 && !st.revealed
+                                                return (
+                                                  <div key={st.step} className="flex items-center justify-between gap-2">
+                                                    <span className="text-gray-600">
+                                                      {st.step}. {describeOp(st.op)} — attendu {st.expected}, donné {st.tries.join(', ')}
+                                                      {st.revealed && ' (solution montrée)'}
+                                                    </span>
+                                                    <span className={firstTry ? 'text-green-600 font-bold' : st.revealed ? 'text-amber-600 font-bold' : 'text-blue-600 font-bold'}>
+                                                      {firstTry ? '✓' : st.revealed ? '✗' : `✓ après ${st.tries.length} essais`}
+                                                    </span>
+                                                  </div>
+                                                )
+                                              })}
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      )}
                                       {isSeriesSession && isExpanded && (
                                         <tr>
                                           <td colSpan={4} className="pb-3">
