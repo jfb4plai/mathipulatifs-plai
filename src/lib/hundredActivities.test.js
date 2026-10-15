@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { runSequence, validateGapSetup, checkGap, expectedGap, gridBounds, stepAttemptLimit, stepHint, stepStatus, summarizeSteps } from './hundredActivities.js'
+import { runSequence, validateGapSetup, checkGap, expectedGap, gridBounds, stepAttemptLimit, stepHint, stepStatus, summarizeSteps, aggregateSteps } from './hundredActivities.js'
 
 test('bornes selon le départ de la grille', () => {
   assert.deepEqual(gridBounds(1), { min: 1, max: 100 })
@@ -71,4 +71,16 @@ test('étapes : résumé enregistré', () => {
   assert.deepEqual(ok, { correct: true, solutionShown: false, attempts: 3 })
   const shown = summarizeSteps([{ tries: [68], revealed: false }, { tries: [66, 67], revealed: true }])
   assert.deepEqual(shown, { correct: false, solutionShown: true, attempts: 3 })
+})
+
+test('agrégation par étape sur plusieurs élèves', () => {
+  const op1 = { sign: '+', value: 15 }
+  const op2 = { sign: '+', value: 3 }
+  const a = { steps: [{ step: 1, op: op1, tries: [68], revealed: false }, { step: 2, op: op2, tries: [70, 72], revealed: true }] }
+  const b = { steps: [{ step: 1, op: op1, tries: [66, 68], revealed: false }, { step: 2, op: op2, tries: [71], revealed: false }] }
+  const libre = { colored: [1, 2] }
+  const r = aggregateSteps([a, b, libre, null])
+  assert.equal(r.total, 2)
+  assert.deepEqual(r.steps.map((s) => [s.step, s.needHelp, s.revealed]), [[1, 1, 0], [2, 1, 1]])
+  assert.deepEqual(aggregateSteps([libre]), { total: 0, steps: [] })
 })

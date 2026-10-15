@@ -92,3 +92,19 @@ export function summarizeSteps(log) {
     attempts: log.reduce((sum, s) => sum + s.tries.length, 0),
   }
 }
+
+/** Agrège les réponses « étape par étape » de plusieurs sessions : par étape, combien d'élèves
+ *  ont eu besoin d'aide (plus d'un essai, ou solution montrée) et combien ont vu la solution. */
+export function aggregateSteps(reponses) {
+  const withSteps = (reponses || []).filter((r) => r && Array.isArray(r.steps))
+  const byStep = new Map()
+  for (const r of withSteps) {
+    for (const st of r.steps) {
+      const agg = byStep.get(st.step) || { step: st.step, op: st.op, needHelp: 0, revealed: 0 }
+      if (st.tries.length > 1 || st.revealed) agg.needHelp += 1
+      if (st.revealed) agg.revealed += 1
+      byStep.set(st.step, agg)
+    }
+  }
+  return { total: withSteps.length, steps: [...byStep.values()].sort((a, b) => a.step - b.step) }
+}

@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAccessibility } from '../contexts/AccessibilityContext.jsx'
 import { KIND_LABELS } from '../lib/seriesGenerators.js'
-import { describeOp } from '../lib/hundredActivities.js'
+import { describeOp, aggregateSteps } from '../lib/hundredActivities.js'
+import HundredReplay from '../components/HundredReplay.jsx'
 
 const manipulativeLabels = {
   base10: { label: 'Blocs base 10', color: 'bg-blue-100 text-blue-700' },
@@ -21,7 +22,8 @@ function ResultsChart({ sessions }) {
   const incorrect = sessions.filter((s) => s.correct === false).length
   const noTarget = sessions.filter((s) => s.correct === null).length
   const total = sessions.length
-  if (total === 0) return null
+  // Sous 3 sessions, l'histogramme répète simplement le tableau.
+  if (total < 3) return null
 
   const bars = [
     { label: 'Correct', count: correct, color: '#10B981' },
@@ -37,9 +39,10 @@ function ResultsChart({ sessions }) {
   return (
     <svg
       width={bars.length * (barW + gap)}
-      height={chartH + 36}
+      height={chartH + 52}
       aria-label="Graphique des résultats"
     >
+      <g transform="translate(0,16)">
       {bars.map((bar, i) => {
         const barH = Math.max(4, Math.round((bar.count / maxCount) * chartH))
         const x = i * (barW + gap)
@@ -56,6 +59,7 @@ function ResultsChart({ sessions }) {
           </g>
         )
       })}
+      </g>
     </svg>
   )
 }
@@ -491,6 +495,34 @@ export default function Dashboard() {
                             </button>
                           </div>
 
+                          {(() => {
+                            const agg = aggregateSteps(sessions.map((s) => s.reponse))
+                            if (agg.total === 0) return null
+                            return (
+                              <div className="mb-4 bg-white border border-gray-200 rounded-lg p-3">
+                                <h5 className="font-semibold text-gray-700 text-sm mb-2">
+                                  Par étape — élèves ayant eu besoin d'aide ({agg.total} élève{agg.total > 1 ? 's' : ''})
+                                </h5>
+                                <div className="space-y-2">
+                                  {agg.steps.map((st) => (
+                                    <div key={st.step} className="text-xs">
+                                      <div className="flex justify-between gap-2 text-gray-700">
+                                        <span>{st.step}. {describeOp(st.op)}</span>
+                                        <span className="font-bold">
+                                          {st.needHelp} / {agg.total}
+                                          {st.revealed > 0 && <span className="text-amber-600 font-normal"> (dont {st.revealed} avec solution montrée)</span>}
+                                        </span>
+                                      </div>
+                                      <div className="h-2 bg-gray-100 rounded mt-1" aria-hidden="true">
+                                        <div className="h-2 rounded bg-amber-400" style={{ width: `${Math.round((st.needHelp / agg.total) * 100)}%` }} />
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )
+                          })()}
+
                           <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                               <thead>
@@ -565,6 +597,9 @@ export default function Dashboard() {
                                                   </div>
                                                 )
                                               })}
+                                              <div className="pt-3">
+                                                <HundredReplay startAt={ex.config?.startAt ?? 1} reponse={s.reponse} />
+                                              </div>
                                             </div>
                                           </td>
                                         </tr>
