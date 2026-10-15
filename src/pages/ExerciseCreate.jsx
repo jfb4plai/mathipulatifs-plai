@@ -1250,7 +1250,8 @@ export default function ExerciseCreate() {
                     </div>
                     {!focusMode && (
                       <div className="text-xs text-gray-500 mt-0.5">
-                        +10 à gauche (vers le bas), −10 à droite (vers le haut), +1 au-dessus (vers la droite), −1 en dessous (vers la gauche).
+                        Quatre flèches montrent un seul pas : +10 = une ligne plus bas (de 1 à 11), −10 = une ligne plus haut (de 100 à 90),
+                        +1 = une case à droite (de 1 à 2), −1 = une case à gauche (de 100 à 99).
                         Aide visuelle pour les élèves qui comptent de 1 en 1 : à retirer pour les autres.
                       </div>
                     )}

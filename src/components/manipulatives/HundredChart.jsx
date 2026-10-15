@@ -10,49 +10,61 @@ const PALETTE = [
 ]
 
 const ARROW = '#0f6e56'
+const ROW = 37 // hauteur d'une ligne de la grille : cases de 34 px + espace de 3 px
 
-/** Flèches repères autour de la grille : gauche +10 (vers le bas), droite −10 (vers le haut),
- *  dessus +1 (gauche → droite), dessous −1 (droite → gauche). Décoratives : l'explication
- *  équivalente est donnée en texte masqué visuellement. */
+/** Flèches repères : chacune montre UN seul pas, sur un exemple.
+ *  +10 : une ligne plus bas (de 1 à 11) · −10 : une ligne plus haut (de 100 à 90)
+ *  +1 : une case à droite (de 1 à 2) · −1 : une case à gauche (de 100 à 99).
+ *  Décoratives : l'explication équivalente est donnée en texte masqué visuellement. */
 function ArrowFrame({ show, children }) {
   if (!show) return children
-  const label = { fontSize: 16, fontWeight: 700, color: ARROW, lineHeight: 1 }
-  const hLine = (dir) => (
-    <div style={{ display: 'flex', alignItems: 'center', flexDirection: dir === 'right' ? 'row' : 'row-reverse' }}>
-      <div style={{ flex: 1, height: 3, background: ARROW, borderRadius: 2 }} />
-      <div style={{
-        width: 0, height: 0, borderTop: '8px solid transparent', borderBottom: '8px solid transparent',
-        ...(dir === 'right' ? { borderLeft: `12px solid ${ARROW}` } : { borderRight: `12px solid ${ARROW}` }),
-      }} />
-    </div>
-  )
+  const label = { fontSize: 16, fontWeight: 700, color: ARROW, lineHeight: 1, position: 'absolute', whiteSpace: 'nowrap' }
+  const head = { width: 0, height: 0, borderTop: '7px solid transparent', borderBottom: '7px solid transparent' }
+  const stroke = { fill: 'none', stroke: ARROW, strokeWidth: 3, strokeLinecap: 'round', strokeLinejoin: 'round' }
+  const mid = ROW / 2 // centre de la 1re ligne ; la 2e est à mid + ROW
+  const sideH = ROW * 2
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '64px 1fr 64px', gridTemplateRows: 'auto 1fr auto', columnGap: 4 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '72px 1fr 72px', gridTemplateRows: 'auto 1fr auto', columnGap: 4 }}>
       <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
         Repères : une case à droite, c'est plus 1. Une case à gauche, c'est moins 1. Une ligne plus bas, c'est plus 10. Une ligne plus haut, c'est moins 10.
       </span>
-      <div aria-hidden="true" style={{ gridColumn: 2, gridRow: 1, textAlign: 'center', paddingBottom: 4 }}>
-        <div style={label}>+1</div>
-        {hLine('right')}
+
+      {/* +1 : de la case 1 à la case 2 */}
+      <div aria-hidden="true" style={{ gridColumn: 2, gridRow: 1, position: 'relative', height: 40 }}>
+        <div style={{ ...label, left: '10%', transform: 'translateX(-50%)', top: 0 }}>+1</div>
+        <div style={{ position: 'absolute', left: '5%', width: '10%', top: 24, display: 'flex', alignItems: 'center' }}>
+          <div style={{ flex: 1, height: 3, background: ARROW, borderRadius: 2 }} />
+          <div style={{ ...head, borderLeft: `11px solid ${ARROW}` }} />
+        </div>
       </div>
+
+      {/* +10 : de la ligne 1 à la ligne 2, à gauche */}
       <div aria-hidden="true" style={{ gridColumn: 1, gridRow: 2, position: 'relative' }}>
-        <svg viewBox="0 0 64 300" preserveAspectRatio="xMidYMid meet" style={{ width: '100%', height: '100%' }}>
-          <path d="M 24 10 C 4 70, 4 230, 22 286" fill="none" stroke={ARROW} strokeWidth="3" strokeLinecap="round" />
-          <path d="M 10 276 L 22 288 L 26 270" fill="none" stroke={ARROW} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        <svg viewBox={`0 0 72 ${sideH}`} width="72" height={sideH} style={{ position: 'absolute', top: 0, left: 0 }}>
+          <path d={`M 66 ${mid} C 30 ${mid - 3}, 30 ${mid + ROW + 3}, 64 ${mid + ROW}`} {...stroke} />
+          <path d={`M 55 ${mid + ROW - 7} L 65 ${mid + ROW} L 54 ${mid + ROW + 6}`} {...stroke} />
         </svg>
-        <div style={{ ...label, position: 'absolute', top: '50%', right: 2, textAlign: 'right', transform: 'translateY(-50%)' }}>+10</div>
+        <div style={{ ...label, left: 0, top: ROW - 8 }}>+10</div>
       </div>
+
       <div style={{ gridColumn: 2, gridRow: 2 }}>{children}</div>
+
+      {/* −10 : de la ligne 10 à la ligne 9, à droite */}
       <div aria-hidden="true" style={{ gridColumn: 3, gridRow: 2, position: 'relative' }}>
-        <svg viewBox="0 0 64 300" preserveAspectRatio="xMidYMid meet" style={{ width: '100%', height: '100%' }}>
-          <path d="M 40 290 C 60 230, 60 70, 42 14" fill="none" stroke={ARROW} strokeWidth="3" strokeLinecap="round" />
-          <path d="M 54 24 L 42 12 L 38 30" fill="none" stroke={ARROW} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        <svg viewBox={`0 0 72 ${sideH}`} width="72" height={sideH} style={{ position: 'absolute', bottom: 0, left: 0 }}>
+          <path d={`M 6 ${mid + ROW} C 42 ${mid + ROW + 3}, 42 ${mid - 3}, 8 ${mid}`} {...stroke} />
+          <path d={`M 17 ${mid - 6} L 7 ${mid} L 18 ${mid + 7}`} {...stroke} />
         </svg>
-        <div style={{ ...label, position: 'absolute', top: '50%', left: 2, textAlign: 'left', transform: 'translateY(-50%)' }}>−10</div>
+        <div style={{ ...label, left: 40, bottom: ROW - 8 }}>−10</div>
       </div>
-      <div aria-hidden="true" style={{ gridColumn: 2, gridRow: 3, textAlign: 'center', paddingTop: 4, paddingBottom: 10 }}>
-        {hLine('left')}
-        <div style={label}>−1</div>
+
+      {/* −1 : de la case 100 à la case 99 */}
+      <div aria-hidden="true" style={{ gridColumn: 2, gridRow: 3, position: 'relative', height: 44 }}>
+        <div style={{ position: 'absolute', left: '85%', width: '10%', top: 8, display: 'flex', alignItems: 'center', flexDirection: 'row-reverse' }}>
+          <div style={{ flex: 1, height: 3, background: ARROW, borderRadius: 2 }} />
+          <div style={{ ...head, borderRight: `11px solid ${ARROW}` }} />
+        </div>
+        <div style={{ ...label, left: '90%', transform: 'translateX(-50%)', top: 22 }}>−1</div>
       </div>
     </div>
   )
