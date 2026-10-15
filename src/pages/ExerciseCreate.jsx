@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAccessibility } from '../contexts/AccessibilityContext.jsx'
 import { DURATION_LEVELS } from '../lib/clockProblems.js'
+import { REFERENTIEL_HORLOGE, REFERENTIEL_SOURCE } from '../lib/referentielHorloge.js'
 import { KIND_PROGRESSION, KIND_LABELS, generateSeries, hourBounds, fitHourToPeriod } from '../lib/seriesGenerators.js'
 import { runSequence, validateGapSetup, expectedGap, MAX_OPS } from '../lib/hundredActivities.js'
 
@@ -1386,6 +1387,25 @@ export default function ExerciseCreate() {
                     <option value="correspondance">Correspondance cadran / écriture 24 h</option>
                   </select>
                 </div>
+                {!focusMode && REFERENTIEL_HORLOGE[clkMode] && (
+                  <details className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3">
+                    <summary className="cursor-pointer font-semibold text-teal-800 min-h-[24px]">
+                      Lien avec le référentiel FWB (point 2.2)
+                    </summary>
+                    <div className="mt-2 space-y-2 text-sm text-gray-700">
+                      <p className="font-semibold">{REFERENTIEL_HORLOGE[clkMode].intitule}</p>
+                      <ul className="space-y-1">
+                        {REFERENTIEL_HORLOGE[clkMode].lignes.map((l) => (
+                          <li key={l.annees}><strong>{l.annees}</strong> : {l.texte}</li>
+                        ))}
+                      </ul>
+                      {REFERENTIEL_HORLOGE[clkMode].note && (
+                        <p className="text-gray-600 italic">{REFERENTIEL_HORLOGE[clkMode].note}</p>
+                      )}
+                      <p className="text-xs text-gray-500">{REFERENTIEL_SOURCE}.</p>
+                    </div>
+                  </details>
+                )}
                 <div>
                   <label className={labelClass}>Granularité</label>
                   <select value={clkGranularity} onChange={(e) => setClkGranularity(e.target.value)} className={inputClass}>
