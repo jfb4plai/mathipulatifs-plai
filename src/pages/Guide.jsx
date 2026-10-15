@@ -228,7 +228,7 @@ const MANIPULATIVES = [
     name: 'Horloge',
     levels: 'P2–P4 · S1 en difficulté',
     skills: "Lecture de l'heure, structuration du temps, heures/demi-heures/quarts d'heure",
-    desc: "Un cadran à aiguilles heures et minutes à manipuler. Trois modes : libre (exploration), placer une heure cible, ou lire l'heure affichée et la saisir.",
+    desc: "Un cadran à aiguilles heures et minutes à manipuler. Trois modes : libre (exploration), placer une heure cible, ou lire l'heure affichée et la saisir (en série possible). Quatre exercices de problèmes de temps (référentiel P4-P6) : heure d'arrivée, heure de départ, durée écoulée entre deux cadrans, horaire d'une journée ; plus la correspondance cadran / écriture 24 h. L'enseignant choisit les heures proposées : avant midi (0-11 h), après midi (12-23 h) ou les deux, au format 24 h.",
     cpa: "Concret : déplacement des aiguilles → Semi-concret : cadran affiché → Abstrait : écriture chiffrée de l'heure",
   },
   {

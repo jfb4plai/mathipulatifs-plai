@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAccessibility } from '../contexts/AccessibilityContext.jsx'
-import { KIND_PROGRESSION, KIND_LABELS, generateSeries } from '../lib/seriesGenerators.js'
+import { DURATION_LEVELS } from '../lib/clockProblems.js'
+import { KIND_PROGRESSION, KIND_LABELS, generateSeries, hourBounds, fitHourToPeriod } from '../lib/seriesGenerators.js'
 import { runSequence, validateGapSetup, expectedGap, MAX_OPS } from '../lib/hundredActivities.js'
 
 const manipulatives = [
@@ -98,16 +99,57 @@ function RetryCycleFields({ allow, setAllow, after, setAfter, focusMode, inputCl
 
 /** Édition d'un item généré — un champ de valeur cible différent par
  *  manipulable, réutilisant le même style que les champs mono-item. */
-function ItemEditor({ manipulative, monMode, item, onChange }) {
+function ItemEditor({ manipulative, monMode, clkPeriod, clkMode, item, onChange }) {
   const set = (patch) => onChange({ ...item, ...patch })
   const smallInput = 'px-2 py-1.5 border border-gray-300 rounded-lg text-center text-sm'
 
   if (manipulative === 'horloge') {
+    const bounds = hourBounds(clkPeriod)
+    if (['arrivee', 'depart', 'duree', 'horaire'].includes(clkMode)) {
+      const startBounds = clkMode === 'horaire' ? { min: 0, max: 23 } : bounds
+      return (
+        <div className="flex items-center gap-2 flex-wrap">
+          <input
+            type="number" min={startBounds.min} max={startBounds.max} value={item.startTime?.h ?? startBounds.min}
+            onChange={(e) => {
+              const n = parseInt(e.target.value)
+              set({ startTime: { ...item.startTime, h: Number.isNaN(n) ? startBounds.min : Math.min(startBounds.max, Math.max(startBounds.min, n)) } })
+            }}
+            className={`w-16 ${smallInput}`}
+            aria-label="Heure de début"
+          />
+          <span className="text-gray-400 text-sm">h</span>
+          <input
+            type="number" min={0} max={59} value={item.startTime?.m ?? 0}
+            onChange={(e) => set({ startTime: { ...item.startTime, m: Math.min(59, Math.max(0, parseInt(e.target.value) || 0)) } })}
+            className={`w-16 ${smallInput}`}
+            aria-label="Minutes de début"
+          />
+          {clkMode === 'horaire' ? (
+            <span className="text-xs text-gray-400">{(item.activities || []).map((a) => `${a.label} ${a.duration} min`).join(' · ')}</span>
+          ) : (
+            <>
+              <span className="text-gray-400 text-sm">durée</span>
+              <input
+                type="number" min={5} max={180} value={item.duration ?? 5}
+                onChange={(e) => set({ duration: Math.min(180, Math.max(5, parseInt(e.target.value) || 5)) })}
+                className={`w-20 ${smallInput}`}
+                aria-label="Durée en minutes"
+              />
+              <span className="text-gray-400 text-sm">min</span>
+            </>
+          )}
+        </div>
+      )
+    }
     return (
       <div className="flex items-center gap-2">
         <input
-          type="number" min={1} max={12} value={item.targetTime?.h ?? 1}
-          onChange={(e) => set({ targetTime: { ...item.targetTime, h: parseInt(e.target.value) || 1 } })}
+          type="number" min={bounds.min} max={bounds.max} value={item.targetTime?.h ?? bounds.min}
+          onChange={(e) => {
+            const n = parseInt(e.target.value)
+            set({ targetTime: { ...item.targetTime, h: Number.isNaN(n) ? bounds.min : Math.min(bounds.max, Math.max(bounds.min, n)) } })
+          }}
           className={`w-16 ${smallInput}`}
         />
         <span className="text-gray-400 text-sm">h</span>
@@ -259,6 +301,26 @@ export default function ExerciseCreate() {
   const [clkTargetM, setClkTargetM] = useState(0)
   const [clkMultipleAttempts, setClkMultipleAttempts] = useState(true)
   const [clkShowSolutionAfter, setClkShowSolutionAfter] = useState(2)
+  // Avant midi (0-11 h) / après midi (12-23 h) : au moins une des deux cochée.
+  const [clkStartH, setClkStartH] = useState('')
+  const [clkStartM, setClkStartM] = useState('')
+  const [clkDuration, setClkDuration] = useState('')
+  const [clkDurationLevel, setClkDurationLevel] = useState('une-heure')
+  const [clkFixedDuration, setClkFixedDuration] = useState('')
+  const [clkSens, setClkSens] = useState('a2d')
+  const [clkAm, setClkAm] = useState(true)
+  const [clkPm, setClkPm] = useState(false)
+  const clkPeriod = clkAm && clkPm ? 'both' : clkPm ? 'pm' : 'am'
+  const toggleClkPeriod = (which) => {
+    const nextAm = which === 'am' ? !clkAm : clkAm
+    const nextPm = which === 'pm' ? !clkPm : clkPm
+    if (!nextAm && !nextPm) return
+    setClkAm(nextAm)
+    setClkPm(nextPm)
+    const next = nextAm && nextPm ? 'both' : nextPm ? 'pm' : 'am'
+    setClkTargetH((h) => fitHourToPeriod(parseInt(h) || 0, next))
+    setGeneratedItems([]) // les items générés ne respecteraient plus la période
+  }
 
   // Monnaie config
   const [monMode, setMonMode] = useState('composer')
@@ -273,7 +335,7 @@ export default function ExerciseCreate() {
     if (selectedManip === 'fractions') return false
     if (selectedManip === 'droite-numerique') return dnMode === 'placer'
     if (selectedManip === 'grille100') return chartMode === 'multiples'
-    if (selectedManip === 'horloge') return clkMode === 'placer'
+    if (selectedManip === 'horloge') return clkMode !== 'libre'
     return Boolean(selectedManip)
   })()
 
@@ -363,6 +425,16 @@ export default function ExerciseCreate() {
         if (data.manipulative === 'horloge') {
           setClkMode(cfg.mode || 'libre')
           setClkGranularity(cfg.granularity || 30)
+          if (cfg.startTime) {
+            setClkStartH(String(cfg.startTime.h))
+            setClkStartM(String(cfg.startTime.m))
+          }
+          setClkDuration(cfg.duration ? String(cfg.duration) : '')
+          setClkDurationLevel(cfg.durationLevel || 'une-heure')
+          setClkFixedDuration(cfg.fixedDuration ? String(cfg.fixedDuration) : '')
+          setClkSens(cfg.sens || 'a2d')
+          setClkAm(cfg.period !== 'pm')
+          setClkPm(cfg.period === 'pm' || cfg.period === 'both')
           if (cfg.targetTime) {
             setClkTargetH(cfg.targetTime.h)
             setClkTargetM(cfg.targetTime.m)
@@ -405,7 +477,13 @@ export default function ExerciseCreate() {
 
   const handleGenerateItems = () => {
     setGeneratedItems(
-      generateSeries(selectedManip, difficulty, itemCount, { mode: selectedManip === 'monnaie' ? monMode : undefined })
+      generateSeries(selectedManip, difficulty, itemCount, {
+        mode: selectedManip === 'monnaie' ? monMode : undefined,
+        period: selectedManip === 'horloge' ? clkPeriod : undefined,
+        ...(selectedManip === 'horloge'
+          ? { mode: clkMode, durationLevel: clkDurationLevel, fixedDuration: parseInt(clkFixedDuration) || undefined }
+          : {}),
+      })
     )
   }
 
@@ -479,7 +557,15 @@ export default function ExerciseCreate() {
       base = {
         mode: clkMode,
         granularity: parseInt(clkGranularity),
-        targetTime: clkMode === 'placer' ? { h: parseInt(clkTargetH) || 3, m: parseInt(clkTargetM) || 0 } : undefined,
+        period: clkMode === 'libre' || clkMode === 'horaire' ? undefined : clkPeriod,
+        startTime: ['arrivee', 'depart', 'duree'].includes(clkMode) && clkStartH !== '' && clkStartM !== '' && parseInt(clkDuration) > 0
+          ? { h: fitHourToPeriod(parseInt(clkStartH) || 0, clkPeriod), m: parseInt(clkStartM) || 0 }
+          : undefined,
+        duration: ['arrivee', 'depart', 'duree'].includes(clkMode) && parseInt(clkDuration) > 0 ? parseInt(clkDuration) : undefined,
+        durationLevel: ['arrivee', 'depart', 'duree'].includes(clkMode) ? clkDurationLevel : undefined,
+        fixedDuration: ['arrivee', 'depart', 'duree'].includes(clkMode) && parseInt(clkFixedDuration) > 0 ? parseInt(clkFixedDuration) : undefined,
+        sens: clkMode === 'correspondance' ? clkSens : undefined,
+        targetTime: clkMode === 'placer' ? { h: fitHourToPeriod(parseInt(clkTargetH) || 0, clkPeriod), m: parseInt(clkTargetM) || 0 } : undefined,
         allowMultipleAttempts: clkMultipleAttempts,
         showSolutionAfterAttempts: clkMultipleAttempts ? clkShowSolutionAfter : 1,
         cpaMode,
@@ -1287,10 +1373,17 @@ export default function ExerciseCreate() {
               <div className="space-y-4">
                 <div>
                   <label className={labelClass}>Mode</label>
-                  <select value={clkMode} onChange={(e) => setClkMode(e.target.value)} className={inputClass}>
+                  <select value={clkMode} onChange={(e) => { setClkMode(e.target.value); setGeneratedItems([]) }} className={inputClass}>
                     <option value="libre">Libre (exploration)</option>
                     <option value="placer">Placer une heure cible</option>
                     <option value="lire">Lire l'heure affichée</option>
+                    <optgroup label="Problèmes de temps (P4 à P6)">
+                      <option value="arrivee">Heure d'arrivée (début + durée, placer l'heure de fin)</option>
+                      <option value="depart">Heure de départ (fin + durée, placer l'heure de début)</option>
+                      <option value="duree">Durée écoulée (lire deux cadrans, écrire la durée)</option>
+                      <option value="horaire">Horaire d'une journée (heure de fin de chaque activité)</option>
+                    </optgroup>
+                    <option value="correspondance">Correspondance cadran / écriture 24 h</option>
                   </select>
                 </div>
                 <div>
@@ -1302,14 +1395,82 @@ export default function ExerciseCreate() {
                     <option value={5}>5 minutes</option>
                   </select>
                 </div>
+                {clkMode !== 'libre' && clkMode !== 'horaire' && (
+                  <fieldset className="space-y-2">
+                    <legend className={labelClass}>Heures proposées</legend>
+                    <label className="flex items-center gap-3 cursor-pointer min-h-[44px]">
+                      <input type="checkbox" checked={clkAm} onChange={() => toggleClkPeriod('am')} className="w-5 h-5" />
+                      <span>Avant midi (0 h à 11 h)</span>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer min-h-[44px]">
+                      <input type="checkbox" checked={clkPm} onChange={() => toggleClkPeriod('pm')} className="w-5 h-5" />
+                      <span>Après midi (12 h à 23 h)</span>
+                    </label>
+                    {!focusMode && (
+                      <p className="text-xs text-gray-500">
+                        Cochez les deux pour mélanger. Les heures s'écrivent en format 24 h (14h30) et un repère
+                        « matin / après-midi / soir » aide l'élève à choisir entre 3h et 15h.
+                      </p>
+                    )}
+                  </fieldset>
+                )}
+                {clkMode === 'correspondance' && (
+                  <div>
+                    <label className={labelClass}>Sens de la correspondance</label>
+                    <select value={clkSens} onChange={(e) => setClkSens(e.target.value)} className={inputClass}>
+                      <option value="a2d">Cadran affiché → choisir l'écriture 24 h</option>
+                      <option value="d2a">Écriture 24 h affichée → choisir le cadran</option>
+                    </select>
+                    {!focusMode && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Quatre propositions dont trois pièges classiques (aiguilles inversées, heure en trop ou en moins,
+                        confusion matin / après-midi). L'heure est tirée au hasard pour chaque élève, sauf en série fixe.
+                      </p>
+                    )}
+                  </div>
+                )}
+                {['arrivee', 'depart', 'duree'].includes(clkMode) && (
+                  <div className="space-y-3 rounded-xl bg-gray-50 border border-gray-200 p-3">
+                    <div>
+                      <label className={labelClass}>Durée possible</label>
+                      <select value={clkDurationLevel} onChange={(e) => setClkDurationLevel(e.target.value)} className={inputClass}>
+                        {Object.entries(DURATION_LEVELS).map(([k, v]) => (
+                          <option key={k} value={k}>{v.label}</option>
+                        ))}
+                      </select>
+                      {!focusMode && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Référentiel : P4 durée dans une même heure, P5 durée jusqu'à 1 h, P6 durée pouvant dépasser 1 h.
+                          Ce réglage s'applique aux énoncés tirés au hasard (série ou exercice sans énoncé fixé).
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <label className={labelClass}>Durée imposée en minutes (optionnel)</label>
+                      <input type="number" min={5} max={180} value={clkFixedDuration} onChange={(e) => setClkFixedDuration(e.target.value)} placeholder="Ex : 50 pour une période de cours" className={inputClass} />
+                      {!focusMode && <p className="text-xs text-gray-500 mt-1">Vide : la durée varie d'un énoncé à l'autre. Remplie : tous les énoncés ont cette durée.</p>}
+                    </div>
+                    {!seriesActive && (
+                      <div>
+                        <label className={labelClass}>Énoncé fixe (optionnel) : début et durée</label>
+                        <div className="grid grid-cols-3 gap-3">
+                          <input type="number" min={0} max={23} value={clkStartH} onChange={(e) => setClkStartH(e.target.value)} placeholder="Heure" aria-label="Heure de début" className={inputClass} />
+                          <input type="number" min={0} max={59} value={clkStartM} onChange={(e) => setClkStartM(e.target.value)} placeholder="Min" aria-label="Minutes de début" className={inputClass} />
+                          <input type="number" min={5} max={180} value={clkDuration} onChange={(e) => setClkDuration(e.target.value)} placeholder="Durée (min)" aria-label="Durée en minutes" className={inputClass} />
+                        </div>
+                        {!focusMode && <p className="text-xs text-gray-500 mt-1">Les trois champs remplis : tous les élèves reçoivent cet énoncé (ex : 10 h 15, 50 min). Sinon, chaque élève reçoit un énoncé tiré au hasard.</p>}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {clkMode === 'placer' && !seriesActive && (
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className={labelClass}>Heure cible — heures</label>
+                      <label className={labelClass}>Heure cible — heures ({hourBounds(clkPeriod).min} à {hourBounds(clkPeriod).max})</label>
                       <input
                         type="number"
-                        min={1}
-                        max={12}
+                        min={hourBounds(clkPeriod).min}
+                        max={hourBounds(clkPeriod).max}
                         value={clkTargetH}
                         onChange={(e) => setClkTargetH(e.target.value)}
                         className={inputClass}
@@ -1328,7 +1489,7 @@ export default function ExerciseCreate() {
                     </div>
                   </div>
                 )}
-                {clkMode === 'placer' && (
+                {(clkMode === 'placer' || clkMode === 'arrivee' || clkMode === 'depart') && (
                   <RetryCycleFields
                     allow={clkMultipleAttempts}
                     setAllow={setClkMultipleAttempts}
@@ -1480,6 +1641,8 @@ export default function ExerciseCreate() {
                                 <ItemEditor
                                   manipulative={selectedManip}
                                   monMode={monMode}
+                                  clkPeriod={clkPeriod}
+                                  clkMode={clkMode}
                                   item={item}
                                   onChange={(updated) => updateGeneratedItem(i, updated)}
                                 />

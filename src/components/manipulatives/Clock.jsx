@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useAccessibility } from '../../contexts/AccessibilityContext.jsx'
+import { hourBounds } from '../../lib/seriesGenerators.js'
+import { momentOfDay } from '../../lib/clockProblems.js'
 
 const SIZE = 260
 const CENTER = SIZE / 2
@@ -23,8 +25,14 @@ function formatTime(h, m) {
   return `${h}h${pad2(m)}`
 }
 
-function randomTime(granularity) {
-  const h = Math.floor(Math.random() * 12) + 1
+// Position de l'heure sur le cadran (1 à 12), quelle que soit l'heure 24 h.
+function dialHour(h) {
+  return h % 12 || 12
+}
+
+function randomTime(granularity, period) {
+  const { min, max } = hourBounds(period)
+  const h = Math.floor(Math.random() * (max - min + 1)) + min
   const stepsPerHour = 60 / granularity
   const m = Math.floor(Math.random() * stepsPerHour) * granularity
   return { h, m }
@@ -70,7 +78,8 @@ function minuteHint(m) {
   return `La grande aiguille (bleue) doit être entre le ${before} et le ${after}.`
 }
 
-function hourHint(h, m) {
+function hourHint(hour24, m) {
+  const h = dialHour(hour24)
   const next = (h % 12) + 1
   if (m === 0) return `La petite aiguille (noire) doit pointer pile sur le ${h}.`
   if (m === 30) return `La petite aiguille (noire) doit être à mi-chemin entre le ${h} et le ${next}.`
@@ -138,6 +147,8 @@ export default function Clock({ config = {}, onValidate }) {
     targetTime,
     allowMultipleAttempts = true,
     showSolutionAfterAttempts = 2,
+    period,
+    promptText,
   } = config
   const { dyslexicFont, largeText, focusMode, ttsEnabled, speak } = useAccessibility()
 
@@ -145,7 +156,7 @@ export default function Clock({ config = {}, onValidate }) {
   const isPlaceMode = mode === 'placer'
   const target = isPlaceMode ? (targetTime || { h: 3, m: 0 }) : null
 
-  const [fixedTime] = useState(() => (isReadMode ? (targetTime || randomTime(granularity)) : null))
+  const [fixedTime] = useState(() => (isReadMode ? (targetTime || randomTime(granularity, period)) : null))
 
   // Position de départ : 10h10 — les deux aiguilles sont bien écartées,
   // chacune est facile à saisir dès le premier contact.
@@ -340,10 +351,10 @@ export default function Clock({ config = {}, onValidate }) {
     <div className={`${fontClass} ${textClass} select-none`}>
       {isPlaceMode && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-center">
-          <span className="font-bold text-blue-700 text-2xl">Place {formatTime(target.h, target.m)}</span>
+          <span className="font-bold text-blue-700 text-2xl">{promptText || `Place ${formatTime(target.h, target.m)}`}</span>
           {ttsEnabled && (
             <button
-              onClick={() => speak(`Place ${formatTime(target.h, target.m)}`)}
+              onClick={() => speak(promptText || `Place ${formatTime(target.h, target.m)}`)}
               className="ml-3 text-blue-500 hover:text-blue-700"
               title="Lire à voix haute"
             >
@@ -352,9 +363,18 @@ export default function Clock({ config = {}, onValidate }) {
           )}
         </div>
       )}
+      {isReadMode && period && (
+        <div className="mb-3 text-center">
+          <span className="inline-block px-3 py-1 rounded-full bg-amber-50 border border-amber-300 text-amber-800 font-bold text-sm">
+            {momentOfDay(fixedTime.h)}
+          </span>
+        </div>
+      )}
       {isReadMode && !focusMode && (
         <p className="text-center text-gray-500 text-sm mb-4">
-          Lis l'heure affichée sur le cadran et écris-la ci-dessous.
+          {period
+            ? "Lis l'heure affichée sur le cadran et écris-la en format 24 h (ex : 14h30 pour 2h30 de l'après-midi)."
+            : "Lis l'heure affichée sur le cadran et écris-la ci-dessous."}
         </p>
       )}
 
@@ -441,8 +461,8 @@ export default function Clock({ config = {}, onValidate }) {
         <div className="flex items-center justify-center gap-2 mb-4">
           <input
             type="number"
-            min={1}
-            max={12}
+            min={hourBounds(period).min}
+            max={hourBounds(period).max}
             value={readH}
             onChange={(e) => setReadH(e.target.value)}
             disabled={validated}
@@ -468,7 +488,7 @@ export default function Clock({ config = {}, onValidate }) {
       {!focusMode && !validated && (
         <p className="text-center text-xs text-gray-400 mb-4">
           {isReadMode
-            ? 'Saisis les heures et les minutes lues sur le cadran'
+            ? (period ? 'Saisis les heures (0 à 23) et les minutes lues sur le cadran' : 'Saisis les heures et les minutes lues sur le cadran')
             : 'Bouge chaque aiguille séparément : la grande bleue indique les minutes, la petite noire indique les heures.'}
         </p>
       )}
@@ -520,7 +540,7 @@ export default function Clock({ config = {}, onValidate }) {
               : correcting
               ? `Regarde les aiguilles se placer sur la position exacte pour ${formatTime(target.h, target.m)}.`
               : `✓ Bravo, c'est validé ! Observe bien ta réponse…`)}
-          {feedback === true && !isPlaceMode && `✓ Correct ! Il est ${formatTime(readHours, readMinutes)}.`}
+          {feedback === true && !isPlaceMode && `✓ Correct ! Il est ${isReadMode ? formatTime(fixedTime.h, fixedTime.m) : formatTime(readHours, readMinutes)}.`}
           {feedback === 'solution' && `Voici ${formatTime(target.h, target.m)} — regarde bien la position des deux aiguilles.`}
           {feedback === false &&
             isReadMode &&

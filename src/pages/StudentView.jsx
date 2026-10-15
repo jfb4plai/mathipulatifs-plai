@@ -9,6 +9,8 @@ import CuisenaireRods from '../components/manipulatives/CuisenaireRods.jsx'
 import TenFrames from '../components/manipulatives/TenFrames.jsx'
 import HundredChart from '../components/manipulatives/HundredChart.jsx'
 import Clock from '../components/manipulatives/Clock.jsx'
+import ClockProblems from '../components/manipulatives/ClockProblems.jsx'
+import { PROBLEM_MODES } from '../lib/clockProblems.js'
 import Money from '../components/manipulatives/Money.jsx'
 import { generateSeries } from '../lib/seriesGenerators.js'
 
@@ -131,7 +133,11 @@ function ManipulativeComponent({ manipulative, config, onValidate }) {
   if (manipulative === 'cuisenaire') return <CuisenaireRods config={config} onValidate={onValidate} />
   if (manipulative === 'cadres10') return <TenFrames config={config} onValidate={onValidate} />
   if (manipulative === 'grille100') return <HundredChart config={config} onValidate={onValidate} />
-  if (manipulative === 'horloge') return <Clock config={config} onValidate={onValidate} />
+  if (manipulative === 'horloge') {
+    return PROBLEM_MODES.includes(config.mode)
+      ? <ClockProblems config={config} onValidate={onValidate} />
+      : <Clock config={config} onValidate={onValidate} />
+  }
   if (manipulative === 'monnaie') return <Money config={config} onValidate={onValidate} />
   return <div className="text-gray-500">Manipulable inconnu : {manipulative}</div>
 }

@@ -2,6 +2,8 @@
 // un override partiel de la config de base, fusionné côté ExerciseCreate et
 // StudentView via { ...configBase, ...item }.
 
+import { generateTimeProblem, generateSchedule } from './clockProblems.js'
+
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min
 const pick = (arr) => arr[randInt(0, arr.length - 1)]
 const shuffle = (arr) => {
@@ -11,6 +13,25 @@ const shuffle = (arr) => {
     ;[a[i], a[j]] = [a[j], a[i]]
   }
   return a
+}
+
+/** Bornes d'heure 24 h selon la période choisie par l'enseignant :
+ *  'am' (0 à 11 h), 'pm' (12 à 23 h), 'both' (0 à 23 h). Période absente =
+ *  ancien format 12 h (1 à 12), conservé pour les exercices déjà créés. */
+export function hourBounds(period) {
+  if (period === 'am') return { min: 0, max: 11 }
+  if (period === 'pm') return { min: 12, max: 23 }
+  if (period === 'both') return { min: 0, max: 23 }
+  return { min: 1, max: 12 }
+}
+
+/** Ramène une heure dans les bornes de la période (même position sur le cadran). */
+export function fitHourToPeriod(h, period) {
+  const { min, max } = hourBounds(period)
+  if (h >= min && h <= max) return h
+  if (period === 'am') return h % 12
+  if (period === 'pm') return (h % 12) + 12
+  return Math.min(max, Math.max(min, h))
 }
 
 // Progression croissante de difficulté par manipulable. `difficulty` est un
@@ -74,7 +95,21 @@ export function distributeKinds(manipulative, difficulty, itemCount) {
 export function generateItem(manipulative, kind, baseConfig = {}) {
   switch (manipulative) {
     case 'horloge': {
-      const h = randInt(1, 12)
+      const mode = baseConfig.mode
+      if (mode === 'arrivee' || mode === 'depart' || mode === 'duree') {
+        return {
+          kind,
+          ...generateTimeProblem({
+            kind,
+            level: baseConfig.durationLevel,
+            bounds: hourBounds(baseConfig.period),
+            fixedDuration: baseConfig.fixedDuration,
+          }),
+        }
+      }
+      if (mode === 'horaire') return { kind, ...generateSchedule({ kind }) }
+      const { min, max } = hourBounds(baseConfig.period)
+      const h = randInt(min, max)
       const m =
         kind === 'heure-pleine' ? 0
         : kind === 'demie' ? 30
