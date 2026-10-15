@@ -164,6 +164,7 @@ export default function StudentView() {
   // Série (Lot B)
   const [seriesItems, setSeriesItems] = useState(null) // null = pas de série ; sinon liste d'overrides
   const [currentItemIndex, setCurrentItemIndex] = useState(0)
+  const [pendingAdvance, setPendingAdvance] = useState(null) // { isLast } tant que la correction est ouverte
   const [seriesResults, setSeriesResults] = useState([])
   const [seriesDone, setSeriesDone] = useState(false)
 
@@ -256,14 +257,13 @@ export default function StudentView() {
 
       // N'avance jamais avant la fin de l'animation du manipulable (revealMs),
       // avec un plancher pour laisser le temps de voir un succès immédiat.
-      const waitMs = Math.max(result.revealMs || 0, 1200)
-      setTimeout(() => {
-        if (currentItemIndex + 1 < seriesItemCount) {
-          setCurrentItemIndex((i) => i + 1)
-        } else {
-          finishSeries(updatedResults, duree)
-        }
-      }, waitMs)
+      // La correction reste affichée jusqu'à ce que l'élève la ferme (croix) :
+      // aucun passage automatique à l'item suivant.
+      const isLast = currentItemIndex + 1 >= seriesItemCount
+      setPendingAdvance({ isLast })
+      // Dernier item : on enregistre tout de suite (l'élève peut quitter la page
+      // sans fermer la correction), la fermeture n'affiche que l'écran final.
+      if (isLast) await saveSeriesResult(updatedResults, duree)
       return
     }
 
@@ -279,13 +279,23 @@ export default function StudentView() {
     // « Continuer ». Voir le bouton sous ManipulativeComponent ci-dessous.
   }
 
-  const finishSeries = async (results, duree) => {
+  const saveSeriesResult = async (results, duree) => {
     const score = results.filter((r) => r.correct === true).length
-    const total = results.length
+    await saveSession({ score, total: results.length, items: results }, duree, score === results.length)
+  }
+
+  // Fermeture de la correction par l'élève : item suivant ou écran final.
+  const closeCorrection = () => {
+    const wasLast = pendingAdvance?.isLast
+    setPendingAdvance(null)
+    if (!wasLast) {
+      setCurrentItemIndex((i) => i + 1)
+      return
+    }
+    const score = seriesResults.filter((r) => r.correct === true).length
     setSeriesDone(true)
     setValidated(true)
-    if (ttsEnabled) speak(`Série terminée : ${score} sur ${total}.`)
-    await saveSession({ score, total, items: results }, duree, score === total)
+    if (ttsEnabled) speak(`Série terminée : ${score} sur ${seriesResults.length}.`)
   }
 
   const handleCpaContinuer = () => {
@@ -413,6 +423,20 @@ export default function StudentView() {
             config={currentConfig}
             onValidate={handleValidate}
           />
+          {isSeries && pendingAdvance && (
+            <div className="mt-4 flex items-center gap-3 rounded-xl bg-blue-50 border border-blue-200 px-4 py-3" role="status">
+              <p className="flex-1 text-base text-blue-800">
+                Réponse enregistrée. Prends le temps de lire la correction, puis ferme-la pour {pendingAdvance.isLast ? 'terminer' : 'passer à la suite'}.
+              </p>
+              <button
+                onClick={closeCorrection}
+                aria-label="Fermer la correction"
+                className="shrink-0 w-11 h-11 rounded-full border-2 border-blue-300 bg-white text-blue-700 text-2xl font-bold hover:bg-blue-100 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+          )}
           {exercise.config?.cpaMode && manipResult && (
             <div className="mt-4 text-center border-t border-gray-100 pt-4">
               <button

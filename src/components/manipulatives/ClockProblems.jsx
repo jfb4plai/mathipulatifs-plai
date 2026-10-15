@@ -10,11 +10,11 @@ import {
   generateSchedule,
   generateTimeProblem,
   kindFromGranularity,
-  momentOfDay,
   scheduleEnds,
 } from '../../lib/clockProblems.js'
 import Clock from './Clock.jsx'
 import ClockFace from './ClockFace.jsx'
+import MomentBadge from './MomentBadge.jsx'
 
 // Énoncé { startTime, duration } : repris de la config (exercice fixé ou item
 // de série) ou tiré au hasard à l'ouverture (exercice « laissé au hasard »).
@@ -31,14 +31,6 @@ function useTimeProblem(config) {
     })
   })
   return problem
-}
-
-function MomentBadge({ h }) {
-  return (
-    <span className="inline-block px-3 py-1 rounded-full bg-amber-50 border border-amber-300 text-amber-800 font-bold text-sm">
-      {momentOfDay(h)}
-    </span>
-  )
 }
 
 function Feedback({ ok, children }) {
@@ -224,18 +216,19 @@ function MatchProblem({ config, onValidate }) {
 
   return (
     <div className={`${dyslexicFont ? 'font-dyslexic' : ''} ${largeText ? 'text-xl' : 'text-base'} select-none`}>
-      {config.period && (
-        <div className="text-center mb-3"><MomentBadge h={target.h} /></div>
-      )}
       {sens === 'a2d' ? (
         <>
           <p className="text-center text-gray-600 mb-2">Quelle écriture correspond à ce cadran ?</p>
+          {config.period && <div className="mb-1 text-center"><MomentBadge h={target.h} /></div>}
           <div className="flex justify-center mb-4"><ClockFace h={target.h} m={target.m} width="min(100%, 300px)" /></div>
         </>
       ) : (
+        <>
+        {config.period && <div className="mb-2 text-center"><MomentBadge h={target.h} /></div>}
         <p className="text-center mb-4">
           Quel cadran montre <span className="font-bold text-2xl text-blue-700">{formatTime(target.h, target.m)}</span> ?
         </p>
+        </>
       )}
       <div className={`grid grid-cols-2 gap-3 mb-4`} role="radiogroup" aria-label="Propositions">
         {options.map((t, i) => (

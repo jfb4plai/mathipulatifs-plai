@@ -58,9 +58,18 @@ export function momentOfDay(h) {
   return 'Soir'
 }
 
+/** Plage d'heures (24 h) du moment de la journée contenant h. */
+export function momentRange(h) {
+  if (h < 6) return { from: 0, to: 5 }
+  if (h < 12) return { from: 6, to: 11 }
+  if (h < 18) return { from: 12, to: 17 }
+  return { from: 18, to: 23 }
+}
+
 /** Ancien réglage « granularité » → kind de la progression horloge. */
 export function kindFromGranularity(g) {
   const n = Number(g)
+  if (n <= 1) return 'minute'
   if (n >= 60) return 'heure-pleine'
   if (n >= 30) return 'demie'
   if (n >= 15) return 'quart'
@@ -72,8 +81,9 @@ const START_MINUTES = {
   demie: [0, 30],
   quart: [0, 15, 30, 45],
   'cinq-min': [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55],
+  minute: Array.from({ length: 60 }, (_, i) => i),
 }
-const DURATION_STEP = { 'heure-pleine': 30, demie: 30, quart: 15, 'cinq-min': 5 }
+const DURATION_STEP = { 'heure-pleine': 30, demie: 30, quart: 15, 'cinq-min': 5, minute: 1 }
 
 /** Tire un énoncé { startTime, duration } respectant la progression (kind), la
  *  borne de durée du niveau, la période d'heures et une durée fixe éventuelle
@@ -135,6 +145,8 @@ export function buildOptions(target, { sens = 'a2d', bounds = { min: 1, max: 12 
   push({ h: target.h, m: (target.m + 15) % 60 })
   push({ h: target.h, m: (target.m + 45) % 60 })
   push({ h: target.h, m: (target.m + 5) % 60 })
+  push({ h: target.h, m: (target.m + 1) % 60 })
+  push({ h: target.h, m: (target.m + 59) % 60 })
   if (sens === 'a2d') {
     push({ h: (target.h + 12) % 24, m: target.m })
   }
@@ -170,7 +182,7 @@ const ACTIVITIES = [
 
 /** Horaire d'une journée : une heure de début et 4 activités enchaînées. */
 export function generateSchedule({ kind = 'cinq-min' } = {}) {
-  const startMinutes = kind === 'heure-pleine' ? [0] : kind === 'demie' ? [0, 30] : [0, 15, 30, 45]
+  const startMinutes = kind === 'heure-pleine' ? [0] : kind === 'demie' ? [0, 30] : kind === 'minute' ? Array.from({ length: 60 }, (_, i) => i) : [0, 15, 30, 45]
   const labels = shuffle(ACTIVITIES).slice(0, 4)
   return {
     startTime: { h: pick([8, 9]), m: pick(startMinutes) },

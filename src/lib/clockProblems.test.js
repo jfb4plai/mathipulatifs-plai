@@ -59,3 +59,14 @@ test('horaire : fins enchaînées', () => {
   const total = s.activities.reduce((n, a) => n + a.duration, 0)
   assert.equal(toMinutes(ends[3]), toMinutes(s.startTime) + total)
 })
+
+test('niveau « à la minute » : minutes quelconques, options distinctes', () => {
+  const seen = new Set()
+  for (let i = 0; i < 300; i++) {
+    const p = generateTimeProblem({ kind: 'minute', level: 'une-heure', bounds: { min: 0, max: 23 } })
+    seen.add(p.startTime.m % 5)
+    const opts = buildOptions({ h: 9, m: p.startTime.m }, { sens: 'd2a', bounds: { min: 0, max: 23 } })
+    assert.equal(new Set(opts.map((o) => `${o.h % 12}:${o.m}`)).size, 4)
+  }
+  assert.ok(seen.size > 1)
+})

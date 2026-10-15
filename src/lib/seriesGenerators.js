@@ -38,7 +38,7 @@ export function fitHourToPeriod(h, period) {
 // des éléments de la liste — les kinds autorisés vont du début de la liste
 // jusqu'à `difficulty` inclus.
 export const KIND_PROGRESSION = {
-  horloge: ['heure-pleine', 'demie', 'quart', 'cinq-min'],
+  horloge: ['heure-pleine', 'demie', 'quart', 'cinq-min', 'minute'],
   monnaie: ['euros-ronds', 'euros-et-50c', 'centimes'],
   base10: ['dizaines', 'centaines'],
   cadres10: ['jusqu-a-10', 'jusqu-a-20'],
@@ -52,6 +52,7 @@ export const KIND_LABELS = {
   demie: 'Demi-heure',
   quart: "Quart d'heure",
   'cinq-min': '5 minutes',
+  minute: 'À la minute',
   'euros-ronds': 'Euros ronds',
   'euros-et-50c': 'Euros et 50 centimes',
   centimes: 'Centimes',
@@ -114,6 +115,8 @@ export function generateItem(manipulative, kind, baseConfig = {}) {
         kind === 'heure-pleine' ? 0
         : kind === 'demie' ? 30
         : kind === 'quart' ? pick([15, 45])
+        
+        : kind === 'minute' ? randInt(0, 59)
         : pick([0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55])
       return { kind, targetTime: { h, m } }
     }

@@ -1393,6 +1393,7 @@ export default function ExerciseCreate() {
                     <option value={30}>Demi-heure</option>
                     <option value={15}>Quart d'heure</option>
                     <option value={5}>5 minutes</option>
+                    <option value={1}>À la minute</option>
                   </select>
                 </div>
                 {clkMode !== 'libre' && clkMode !== 'horaire' && (

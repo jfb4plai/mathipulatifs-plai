@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useAccessibility } from '../../contexts/AccessibilityContext.jsx'
 import { hourBounds } from '../../lib/seriesGenerators.js'
-import { momentOfDay } from '../../lib/clockProblems.js'
+import MomentBadge from './MomentBadge.jsx'
 
 const SIZE = 260
 const CENTER = SIZE / 2
@@ -15,6 +15,8 @@ const RADIUS = CENTER - 20
 // geste d'enfant, assez strict pour refuser une aiguille laissée sur l'heure
 // pile quand la cible est une demie.
 const MINUTE_TOL_DEG = 15
+// Niveau « à la minute » : tolérance resserrée à ±1 minute (±6°).
+const MINUTE_TOL_DEG_PRECISE = 6
 const HOUR_TOL_DEG = 12
 
 function pad2(n) {
@@ -149,6 +151,7 @@ export default function Clock({ config = {}, onValidate }) {
     showSolutionAfterAttempts = 2,
     period,
     promptText,
+    kind,
   } = config
   const { dyslexicFont, largeText, focusMode, ttsEnabled, speak } = useAccessibility()
 
@@ -233,7 +236,7 @@ export default function Clock({ config = {}, onValidate }) {
   const handleValidate = () => {
     if (isPlaceMode) {
       const okH = angDiff(hourAngle, hourAngleOf(target.h, target.m)) <= HOUR_TOL_DEG
-      const okM = angDiff(minuteAngle, minuteAngleOf(target.m)) <= MINUTE_TOL_DEG
+      const okM = angDiff(minuteAngle, minuteAngleOf(target.m)) <= (kind === 'minute' || granularity <= 1 ? MINUTE_TOL_DEG_PRECISE : MINUTE_TOL_DEG)
       if (okH && okM) {
         // Placement déjà « propre » (à quelques degrés près) : rien à recaler.
         const wasPrecise =
@@ -363,21 +366,19 @@ export default function Clock({ config = {}, onValidate }) {
           )}
         </div>
       )}
-      {isReadMode && period && (
-        <div className="mb-3 text-center">
-          <span className="inline-block px-3 py-1 rounded-full bg-amber-50 border border-amber-300 text-amber-800 font-bold text-sm">
-            {momentOfDay(fixedTime.h)}
-          </span>
-        </div>
-      )}
       {isReadMode && !focusMode && (
-        <p className="text-center text-gray-500 text-sm mb-4">
+        <p className="text-center text-gray-700 text-base mb-4">
           {period
             ? "Lis l'heure affichée sur le cadran et écris-la en format 24 h (ex : 14h30 pour 2h30 de l'après-midi)."
             : "Lis l'heure affichée sur le cadran et écris-la ci-dessous."}
         </p>
       )}
 
+      {isReadMode && period && (
+        <div className="mb-1 text-center">
+          <MomentBadge h={fixedTime.h} />
+        </div>
+      )}
       <div className="flex justify-center mb-4">
         <svg
           ref={svgRef}
