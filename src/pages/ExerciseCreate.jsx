@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAccessibility } from '../contexts/AccessibilityContext.jsx'
 import { KIND_PROGRESSION, KIND_LABELS, generateSeries } from '../lib/seriesGenerators.js'
+import { runSequence, validateGapSetup, expectedGap, MAX_OPS } from '../lib/hundredActivities.js'
 
 const manipulatives = [
   {
@@ -229,6 +230,26 @@ export default function ExerciseCreate() {
   const [chartStart, setChartStart] = useState(1)
   const [chartMultipleAttempts, setChartMultipleAttempts] = useState(true)
   const [chartShowSolutionAfter, setChartShowSolutionAfter] = useState(2)
+  const [chartStartCell, setChartStartCell] = useState('')
+  const [chartOps, setChartOps] = useState([{ sign: '+', value: '' }])
+  const [chartTargetCell, setChartTargetCell] = useState('')
+  const [chartArrows, setChartArrows] = useState(false)
+
+  // Contrôle des activités « séquence » et « écart » (aperçu + blocage à l'enregistrement)
+  const chartActivity = (() => {
+    if (selectedManip !== 'grille100') return null
+    if (chartMode === 'sequence') {
+      const ops = chartOps.map((o) => ({ sign: o.sign, value: parseInt(o.value, 10) }))
+      return { kind: 'sequence', ...runSequence(parseInt(chartStartCell, 10), ops, chartStart) }
+    }
+    if (chartMode === 'ecart') {
+      const start = parseInt(chartStartCell, 10)
+      const target = parseInt(chartTargetCell, 10)
+      const check = validateGapSetup(start, target, chartStart)
+      return { kind: 'ecart', ...check, expected: check.ok ? expectedGap(start, target) : null }
+    }
+    return null
+  })()
 
   // Horloge config
   const [clkMode, setClkMode] = useState('libre')
@@ -328,6 +349,14 @@ export default function ExerciseCreate() {
           setChartStart(cfg.startAt ?? 1)
           setChartMultipleAttempts(cfg.allowMultipleAttempts ?? true)
           setChartShowSolutionAfter(cfg.showSolutionAfterAttempts ?? 2)
+          setChartStartCell(cfg.startCell !== undefined ? String(cfg.startCell) : '')
+          setChartOps(
+            Array.isArray(cfg.ops) && cfg.ops.length > 0
+              ? cfg.ops.map((o) => ({ sign: o.sign, value: String(o.value) }))
+              : [{ sign: '+', value: '' }]
+          )
+          setChartTargetCell(cfg.targetCell !== undefined ? String(cfg.targetCell) : '')
+          setChartArrows(cfg.arrows || false)
         }
         if (data.manipulative === 'horloge') {
           setClkMode(cfg.mode || 'libre')
@@ -435,6 +464,10 @@ export default function ExerciseCreate() {
         startAt: parseInt(chartStart),
         mode: chartMode,
         multipleOf: chartMode === 'multiples' ? parseInt(chartMultiple) : undefined,
+        startCell: chartMode === 'sequence' || chartMode === 'ecart' ? parseInt(chartStartCell, 10) : undefined,
+        ops: chartMode === 'sequence' ? chartOps.map((o) => ({ sign: o.sign, value: parseInt(o.value, 10) })) : undefined,
+        targetCell: chartMode === 'ecart' ? parseInt(chartTargetCell, 10) : undefined,
+        arrows: chartArrows,
         allowMultipleAttempts: chartMultipleAttempts,
         showSolutionAfterAttempts: chartMultipleAttempts ? chartShowSolutionAfter : 1,
         cpaMode,
@@ -463,7 +496,7 @@ export default function ExerciseCreate() {
       return {}
     }
 
-    if (seriesActive) {
+    if (seriesActive && seriesEligible) {
       return {
         ...base,
         cpaMode: false, // le mode CPA est désactivé dès qu'une série est active
@@ -482,6 +515,10 @@ export default function ExerciseCreate() {
 
     if (!selectedManip) {
       setError('Veuillez choisir un manipulable.')
+      return
+    }
+    if (chartActivity && !chartActivity.ok) {
+      setError(chartActivity.reason)
       return
     }
     if (!supabase) {
@@ -1040,8 +1077,139 @@ export default function ExerciseCreate() {
                   <select value={chartMode} onChange={(e) => setChartMode(e.target.value)} className={inputClass}>
                     <option value="libre">Libre (coloriage libre)</option>
                     <option value="multiples">Multiples (trouver les multiples de N)</option>
+                    <option value="sequence">Séquence opérative (départ + ajoute/retire, trouver l'arrivée)</option>
+                    <option value="ecart">Écart (départ et cible : que faut-il ajouter ou retirer ?)</option>
                   </select>
+                  {!focusMode && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Ces deux activités ne s'utilisent qu'en exercice unique (pas de série aléatoire).
+                    </p>
+                  )}
                 </div>
+
+                {(chartMode === 'sequence' || chartMode === 'ecart') && (
+                  <div>
+                    <label className={labelClass}>Case de départ</label>
+                    <input
+                      type="number"
+                      value={chartStartCell}
+                      onChange={(e) => setChartStartCell(e.target.value)}
+                      min={parseInt(chartStart) === 0 ? 0 : 1}
+                      max={parseInt(chartStart) === 0 ? 99 : 100}
+                      placeholder="Ex : 34"
+                      className={inputClass}
+                    />
+                    {!focusMode && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Cette case sera colorée en bleu pour l'élève. Elle doit être dans la grille ({parseInt(chartStart) === 0 ? '0 à 99' : '1 à 100'}).
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {chartMode === 'sequence' && (
+                  <div>
+                    <label className={labelClass}>Séquence d'opérations (de 1 à {MAX_OPS} étapes)</label>
+                    <div className="space-y-2">
+                      {chartOps.map((op, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <span className="text-sm text-gray-500 w-6">{i + 1}.</span>
+                          <select
+                            value={op.sign}
+                            onChange={(e) => setChartOps((prev) => prev.map((o, j) => (j === i ? { ...o, sign: e.target.value } : o)))}
+                            className="px-3 py-3 border border-gray-300 rounded-xl min-h-[44px]"
+                            aria-label={`Étape ${i + 1} : ajoute ou retire`}
+                          >
+                            <option value="+">Ajoute</option>
+                            <option value="-">Retire</option>
+                          </select>
+                          <input
+                            type="number"
+                            min={1}
+                            max={99}
+                            value={op.value}
+                            onChange={(e) => setChartOps((prev) => prev.map((o, j) => (j === i ? { ...o, value: e.target.value } : o)))}
+                            placeholder="Ex : 10"
+                            aria-label={`Étape ${i + 1} : nombre`}
+                            className="w-24 px-3 py-3 border border-gray-300 rounded-xl text-center min-h-[44px]"
+                          />
+                          {chartOps.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => setChartOps((prev) => prev.filter((_, j) => j !== i))}
+                              className="text-sm text-gray-500 hover:text-red-600 border border-gray-200 rounded-lg px-3 min-h-[44px]"
+                            >
+                              Enlever
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {chartOps.length < MAX_OPS && (
+                      <button
+                        type="button"
+                        onClick={() => setChartOps((prev) => [...prev, { sign: '+', value: '' }])}
+                        className="mt-2 text-sm font-semibold text-blue-600 hover:text-blue-800 min-h-[44px]"
+                      >
+                        + Ajouter une étape
+                      </button>
+                    )}
+                    {!focusMode && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        L'élève lit les étapes dans l'ordre et clique la case d'arrivée. La case attendue est calculée pour vous.
+                        Une étape ne peut pas faire sortir de la grille.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {chartMode === 'ecart' && (
+                  <div>
+                    <label className={labelClass}>Case cible</label>
+                    <input
+                      type="number"
+                      value={chartTargetCell}
+                      onChange={(e) => setChartTargetCell(e.target.value)}
+                      min={parseInt(chartStart) === 0 ? 0 : 1}
+                      max={parseInt(chartStart) === 0 ? 99 : 100}
+                      placeholder="Ex : 61"
+                      className={inputClass}
+                    />
+                    {!focusMode && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        L'élève répond « J'ajoute » ou « Je retire », puis tape le nombre. Les deux doivent être justes.
+                        Cible plus grande que le départ : il faut ajouter. Plus petite : il faut retirer.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {chartActivity && chartStartCell !== '' && (
+                  <div
+                    className={`p-3 rounded-xl text-sm font-medium border ${
+                      chartActivity.ok ? 'bg-green-50 border-green-200 text-green-800' : 'bg-orange-50 border-orange-200 text-orange-800'
+                    }`}
+                    aria-live="polite"
+                  >
+                    {chartActivity.kind === 'sequence' && (chartActivity.ok
+                      ? `Aperçu : ${chartActivity.path.join(' → ')}. Case d'arrivée attendue : ${chartActivity.end}.`
+                      : chartActivity.reason)}
+                    {chartActivity.kind === 'ecart' && (chartActivity.ok
+                      ? `Réponse attendue : ${chartActivity.expected.sign === '+' ? 'ajouter' : 'retirer'} ${chartActivity.expected.value}.`
+                      : chartActivity.reason)}
+                  </div>
+                )}
+                {(chartMode === 'sequence' || chartMode === 'ecart') && (
+                  <RetryCycleFields
+                    allow={chartMultipleAttempts}
+                    setAllow={setChartMultipleAttempts}
+                    after={chartShowSolutionAfter}
+                    setAfter={setChartShowSolutionAfter}
+                    focusMode={focusMode}
+                    inputClass={inputClass}
+                    labelClass={labelClass}
+                  />
+                )}
                 {chartMode === 'multiples' && (
                   <>
                     {!seriesActive && (
@@ -1068,6 +1236,26 @@ export default function ExerciseCreate() {
                     />
                   </>
                 )}
+
+                <label className="flex items-start gap-3 cursor-pointer group pt-2 border-t border-gray-100">
+                  <input
+                    type="checkbox"
+                    checked={chartArrows}
+                    onChange={(e) => setChartArrows(e.target.checked)}
+                    className="mt-1 w-5 h-5 accent-blue-500 cursor-pointer"
+                  />
+                  <div>
+                    <div className="font-semibold text-gray-700 text-sm group-hover:text-blue-600 transition-colors">
+                      Afficher les flèches repères autour de la grille
+                    </div>
+                    {!focusMode && (
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        +10 à gauche (vers le bas), −10 à droite (vers le haut), +1 au-dessus (vers la droite), −1 en dessous (vers la gauche).
+                        Aide visuelle pour les élèves qui comptent de 1 en 1 : à retirer pour les autres.
+                      </div>
+                    )}
+                  </div>
+                </label>
               </div>
             )}
 

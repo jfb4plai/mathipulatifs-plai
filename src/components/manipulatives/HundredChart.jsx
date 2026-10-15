@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useAccessibility } from '../../contexts/AccessibilityContext.jsx'
+import { runSequence, validateGapSetup, expectedGap, checkGap, describeOp } from '../../lib/hundredActivities.js'
 
 const PALETTE = [
   { id: 'yellow', bg: '#F6E05E', border: '#B7791F', label: 'Jaune' },
@@ -8,12 +9,65 @@ const PALETTE = [
   { id: 'blue',   bg: '#90CDF4', border: '#2C5282', label: 'Bleu' },
 ]
 
+const ARROW = '#0f6e56'
+
+/** Flèches repères autour de la grille : gauche +10 (vers le bas), droite −10 (vers le haut),
+ *  dessus +1 (gauche → droite), dessous −1 (droite → gauche). Décoratives : l'explication
+ *  équivalente est donnée en texte masqué visuellement. */
+function ArrowFrame({ show, children }) {
+  if (!show) return children
+  const label = { fontSize: 16, fontWeight: 700, color: ARROW, lineHeight: 1 }
+  const hLine = (dir) => (
+    <div style={{ display: 'flex', alignItems: 'center', flexDirection: dir === 'right' ? 'row' : 'row-reverse' }}>
+      <div style={{ flex: 1, height: 3, background: ARROW, borderRadius: 2 }} />
+      <div style={{
+        width: 0, height: 0, borderTop: '8px solid transparent', borderBottom: '8px solid transparent',
+        ...(dir === 'right' ? { borderLeft: `12px solid ${ARROW}` } : { borderRight: `12px solid ${ARROW}` }),
+      }} />
+    </div>
+  )
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '64px 1fr 64px', gridTemplateRows: 'auto 1fr auto', columnGap: 4 }}>
+      <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
+        Repères : une case à droite, c'est plus 1. Une case à gauche, c'est moins 1. Une ligne plus bas, c'est plus 10. Une ligne plus haut, c'est moins 10.
+      </span>
+      <div aria-hidden="true" style={{ gridColumn: 2, gridRow: 1, textAlign: 'center', paddingBottom: 4 }}>
+        <div style={label}>+1</div>
+        {hLine('right')}
+      </div>
+      <div aria-hidden="true" style={{ gridColumn: 1, gridRow: 2, position: 'relative' }}>
+        <svg viewBox="0 0 64 300" preserveAspectRatio="xMidYMid meet" style={{ width: '100%', height: '100%' }}>
+          <path d="M 24 10 C 4 70, 4 230, 22 286" fill="none" stroke={ARROW} strokeWidth="3" strokeLinecap="round" />
+          <path d="M 10 276 L 22 288 L 26 270" fill="none" stroke={ARROW} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <div style={{ ...label, position: 'absolute', top: '50%', right: 2, textAlign: 'right', transform: 'translateY(-50%)' }}>+10</div>
+      </div>
+      <div style={{ gridColumn: 2, gridRow: 2 }}>{children}</div>
+      <div aria-hidden="true" style={{ gridColumn: 3, gridRow: 2, position: 'relative' }}>
+        <svg viewBox="0 0 64 300" preserveAspectRatio="xMidYMid meet" style={{ width: '100%', height: '100%' }}>
+          <path d="M 40 290 C 60 230, 60 70, 42 14" fill="none" stroke={ARROW} strokeWidth="3" strokeLinecap="round" />
+          <path d="M 54 24 L 42 12 L 38 30" fill="none" stroke={ARROW} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <div style={{ ...label, position: 'absolute', top: '50%', left: 2, textAlign: 'left', transform: 'translateY(-50%)' }}>−10</div>
+      </div>
+      <div aria-hidden="true" style={{ gridColumn: 2, gridRow: 3, textAlign: 'center', paddingTop: 4, paddingBottom: 10 }}>
+        {hLine('left')}
+        <div style={label}>−1</div>
+      </div>
+    </div>
+  )
+}
+
 export default function HundredChart({ config = {}, onValidate }) {
   const { focusMode, ttsEnabled, speak } = useAccessibility()
   const {
     startAt = 1,        // 1 or 0
-    mode = 'libre',     // 'libre' | 'multiples'
+    mode = 'libre',     // 'libre' | 'multiples' | 'sequence' | 'ecart'
     multipleOf,         // used when mode = 'multiples'
+    startCell,          // modes 'sequence' et 'ecart' : case de départ
+    ops = [],           // mode 'sequence' : [{ sign: '+' | '-', value }]
+    targetCell,         // mode 'ecart' : case cible
+    arrows = false,     // aménagement : flèches repères +10 / -10 / +1 / -1
     allowMultipleAttempts = true,
     showSolutionAfterAttempts = 2,
   } = config
@@ -33,11 +87,30 @@ export default function HundredChart({ config = {}, onValidate }) {
 
   useEffect(() => () => clearTimeout(revealTimer.current), [])
 
+  const isSeq = mode === 'sequence'
+  const isGap = mode === 'ecart'
+  const isActivity = isSeq || isGap
+  const seqResult = isSeq ? runSequence(startCell, ops, startAt) : null
+  const gapSetup = isGap ? validateGapSetup(startCell, targetCell, startAt) : null
+  const activityBroken = isSeq ? !seqResult.ok : isGap ? !gapSetup.ok : false
+  const activityEnd = isSeq ? seqResult.end : null
+
+  const [picked, setPicked] = useState(null)        // sequence : case choisie
+  const [gapSign, setGapSign] = useState(null)      // ecart : '+' | '-'
+  const [gapValue, setGapValue] = useState('')      // ecart : texte saisi
+  const [outcome, setOutcome] = useState(null)      // 'correct' | 'wrong' | 'revealed'
+
   const hasTarget = mode === 'multiples' && !!multipleOf
   const expectedMultiples = hasTarget ? numbers.filter((n) => n !== 0 && n % multipleOf === 0) : []
 
   const toggleCell = (n) => {
     if (validated) return
+    if (isGap) return
+    if (isSeq) {
+      setPicked(n)
+      setHint(null)
+      return
+    }
     setColored((prev) => {
       const next = { ...prev }
       if (next[n] === activeColor) {
@@ -85,7 +158,83 @@ export default function HundredChart({ config = {}, onValidate }) {
     }, 2000)
   }
 
+  const handleActivityValidate = () => {
+    let correct
+    let studentResult
+    let hintMsg
+    if (isSeq) {
+      if (picked == null) {
+        setHint("Clique d'abord sur la case d'arrivée.")
+        return
+      }
+      correct = picked === activityEnd
+      studentResult = { mode, startCell, ops, picked, expected: activityEnd }
+      hintMsg = picked > activityEnd
+        ? "Ta case est trop grande. Refais le calcul étape par étape."
+        : "Ta case est trop petite. Refais le calcul étape par étape."
+    } else {
+      const value = gapValue === '' ? null : parseInt(gapValue, 10)
+      const res = checkGap(startCell, targetCell, { sign: gapSign, value })
+      if (res.problem === 'choix') {
+        setHint("Choisis d'abord « J'ajoute » ou « Je retire ».")
+        return
+      }
+      if (res.problem === 'valeur-absente') {
+        setHint('Écris le nombre.')
+        return
+      }
+      correct = res.correct
+      studentResult = { mode, startCell, targetCell, answer: { sign: gapSign, value }, expected: expectedGap(startCell, targetCell) }
+      hintMsg = res.problem === 'signe'
+        ? (targetCell > startCell ? 'La case cible est plus grande que le départ.' : 'La case cible est plus petite que le départ.')
+        : 'Le sens est bon. Vérifie le nombre.'
+    }
+
+    const n = attempts + 1
+    setAttempts(n)
+
+    if (correct) {
+      setValidated(true)
+      setHint(null)
+      setOutcome('correct')
+      if (onValidate) onValidate({ ...studentResult, correct: true, attempts: n, revealMs: 0 })
+      if (ttsEnabled) speak('Bravo, bonne réponse !')
+      return
+    }
+
+    if (!allowMultipleAttempts) {
+      setValidated(true)
+      setOutcome('wrong')
+      if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n, revealMs: 0 })
+      if (ttsEnabled) speak('Pas tout à fait.')
+      return
+    }
+
+    setHint(hintMsg)
+    if (ttsEnabled) speak(hintMsg)
+
+    if (showSolutionAfterAttempts > 0 && n >= showSolutionAfterAttempts) {
+      setValidated(true)
+      setSolutionShown(true)
+      setOutcome('revealed')
+      if (onValidate) onValidate({ ...studentResult, correct: false, attempts: n, solutionShown: true, revealMs: 2000 })
+      if (ttsEnabled) speak('Regarde la solution.')
+      revealTimer.current = setTimeout(() => {
+        if (isSeq) {
+          setPicked(activityEnd)
+        } else {
+          const exp = expectedGap(startCell, targetCell)
+          setGapSign(exp.sign)
+          setGapValue(String(exp.value))
+        }
+        setRevealApplied(true)
+        setHint(null)
+      }, 2000)
+    }
+  }
+
   const handleValidate = () => {
+    if (isActivity) return handleActivityValidate()
     const coloredNumbers = Object.keys(colored).map(Number)
     const studentResult = { colored: coloredNumbers, multipleOf }
 
@@ -129,6 +278,17 @@ export default function HundredChart({ config = {}, onValidate }) {
   }
 
   const getCellStyle = (n) => {
+    if (isActivity) {
+      if (n === startCell) return { backgroundColor: '#BEE3F8', borderColor: '#2C5282', borderWidth: 3, fontWeight: 'bold' }
+      if (isGap && n === targetCell) return { backgroundColor: '#FBD38D', borderColor: '#C05621', borderWidth: 3, borderStyle: 'dashed', fontWeight: 'bold' }
+      if (isSeq && n === picked) {
+        const good = outcome === 'correct' || (outcome === 'revealed' && revealApplied)
+        return good
+          ? { backgroundColor: '#68D391', borderColor: '#276749', borderWidth: 3, fontWeight: 'bold' }
+          : { backgroundColor: '#F6E05E', borderColor: '#B7791F', borderWidth: 3, fontWeight: 'bold' }
+      }
+      return { backgroundColor: '#F7FAFC', borderColor: '#E2E8F0' }
+    }
     const colorId = colored[n]
     if (colorId) {
       const p = PALETTE.find((c) => c.id === colorId)
@@ -157,8 +317,41 @@ export default function HundredChart({ config = {}, onValidate }) {
     return userSet.size === expectedMultiples.length && expectedMultiples.every((n) => userSet.has(n))
   })()
 
+  if (activityBroken) {
+    return (
+      <div className="p-4 rounded-xl bg-orange-50 border border-orange-300 text-orange-800 font-semibold">
+        Cet exercice est mal réglé : {isSeq ? seqResult.reason : gapSetup.reason} Demande à ton enseignant de le corriger.
+      </div>
+    )
+  }
+
+  const activityDone = validated && (!solutionShown || revealApplied)
+  const expGap = isGap ? expectedGap(startCell, targetCell) : null
+
   return (
     <div>
+      {/* Consigne des activités */}
+      {isSeq && (
+        <div className="mb-3 p-4 bg-indigo-50 border border-indigo-200 rounded-xl text-indigo-900" style={{ fontSize: 16 }}>
+          <p className="font-bold mb-1">Pars de la case {startCell}.</p>
+          <ol className="list-decimal pl-6 space-y-0.5">
+            {ops.map((op, i) => <li key={i}>{describeOp(op)}.</li>)}
+          </ol>
+          <p className="mt-2 font-semibold">Clique sur la case d'arrivée.</p>
+        </div>
+      )}
+      {isGap && (
+        <div className="mb-3 p-4 bg-indigo-50 border border-indigo-200 rounded-xl text-indigo-900" style={{ fontSize: 16 }}>
+          <p className="font-bold">
+            Pour aller de {startCell} à {targetCell}, que dois-tu ajouter ou retirer ?
+          </p>
+          <ul className="mt-2 flex gap-4 flex-wrap" style={{ fontSize: 14 }}>
+            <li><span style={{ display: 'inline-block', width: 16, height: 16, background: '#BEE3F8', border: '3px solid #2C5282', verticalAlign: 'middle' }} /> Départ ({startCell})</li>
+            <li><span style={{ display: 'inline-block', width: 16, height: 16, background: '#FBD38D', border: '3px dashed #C05621', verticalAlign: 'middle' }} /> Cible ({targetCell})</li>
+          </ul>
+        </div>
+      )}
+
       {/* Mode indicator */}
       {mode === 'multiples' && multipleOf && !focusMode && (
         <div className="mb-3 p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-sm text-indigo-800 font-medium">
@@ -167,7 +360,7 @@ export default function HundredChart({ config = {}, onValidate }) {
       )}
 
       {/* Palette de couleurs */}
-      {!validated && (
+      {!validated && !isActivity && (
         <div className="flex items-center gap-2 mb-3 flex-wrap">
           {!focusMode && <span className="text-xs text-gray-500 font-semibold">Couleur :</span>}
           {PALETTE.map((p) => (
@@ -201,6 +394,7 @@ export default function HundredChart({ config = {}, onValidate }) {
       )}
 
       {/* Grille 10×10 */}
+      <ArrowFrame show={arrows}>
       <div
         style={{
           display: 'grid',
@@ -215,14 +409,14 @@ export default function HundredChart({ config = {}, onValidate }) {
           <button
             key={n}
             onClick={() => toggleCell(n)}
-            disabled={validated}
+            disabled={validated || isGap}
             role="gridcell"
-            aria-label={`${n}${colored[n] ? ', colorié' : ''}`}
+            aria-label={`${n}${colored[n] ? ', colorié' : ''}${isActivity && n === startCell ? ', départ' : ''}${isGap && n === targetCell ? ', cible' : ''}${isSeq && n === picked ? ', choisie' : ''}`}
             style={{
               height: 34,
               borderRadius: 4,
               border: `1px solid`,
-              fontSize: 11,
+              fontSize: isActivity ? 13 : 11,
               fontWeight: colored[n] ? 'bold' : 'normal',
               color: '#2D3748',
               cursor: validated ? 'default' : 'pointer',
@@ -234,6 +428,7 @@ export default function HundredChart({ config = {}, onValidate }) {
           </button>
         ))}
       </div>
+      </ArrowFrame>
 
       {/* Indice après une réponse fausse — l'élève peut réessayer */}
       {hint && !revealApplied && (
@@ -243,6 +438,42 @@ export default function HundredChart({ config = {}, onValidate }) {
             <p className="font-semibold text-amber-800 text-sm flex-1" aria-live="polite">{hint}</p>
           </div>
         </div>
+      )}
+
+      {/* Réponse de l'écart : signe + nombre */}
+      {isGap && !validated && (
+        <div className="mb-3 flex items-center gap-2 flex-wrap">
+          {[['+', "J'ajoute"], ['-', 'Je retire']].map(([sign, text]) => (
+            <button
+              key={sign}
+              onClick={() => { setGapSign(sign); setHint(null) }}
+              aria-pressed={gapSign === sign}
+              className={`px-4 rounded-xl font-bold border-2 min-h-[44px] ${
+                gapSign === sign ? 'bg-blue-500 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300'
+              }`}
+              style={{ fontSize: 16 }}
+            >
+              {text}
+            </button>
+          ))}
+          <input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={99}
+            value={gapValue}
+            onChange={(e) => { setGapValue(e.target.value); setHint(null) }}
+            aria-label="Le nombre à ajouter ou à retirer"
+            placeholder="?"
+            className="w-24 px-3 border-2 border-gray-300 rounded-xl text-center font-bold min-h-[44px]"
+            style={{ fontSize: 18 }}
+          />
+        </div>
+      )}
+      {isGap && validated && (
+        <p className="mb-3 font-semibold text-gray-700" style={{ fontSize: 16 }}>
+          Ta réponse : {gapSign === '+' ? "j'ajoute" : 'je retire'} {gapValue}
+        </p>
       )}
 
       {/* Actions */}
@@ -255,7 +486,20 @@ export default function HundredChart({ config = {}, onValidate }) {
         </button>
       )}
 
-      {validated && (!solutionShown || revealApplied) && (
+      {isActivity && activityDone && (
+        <div
+          className={`mt-3 p-3 rounded-xl text-center font-bold ${
+            outcome === 'correct' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-orange-50 text-orange-700 border border-orange-200'
+          }`}
+          style={{ fontSize: 16 }}
+        >
+          {outcome === 'correct' && (isSeq ? `✓ Correct ! Tu arrives à ${activityEnd}.` : `✓ Correct ! De ${startCell} à ${targetCell}, ${expGap.sign === '+' ? 'on ajoute' : 'on retire'} ${expGap.value}.`)}
+          {outcome === 'revealed' && (isSeq ? `Regarde : l'arrivée est ${activityEnd}.` : `Regarde : ${expGap.sign === '+' ? 'on ajoute' : 'on retire'} ${expGap.value}.`)}
+          {outcome === 'wrong' && 'Pas tout à fait.'}
+        </div>
+      )}
+
+      {!isActivity && validated && (!solutionShown || revealApplied) && (
         <div
           className={`mt-3 p-3 rounded-xl text-center font-bold text-sm ${
             finalCorrect === true
